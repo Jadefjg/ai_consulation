@@ -1,0 +1,10 @@
+.git
+.idea
+.vscode
+**/node_modules
+**/dist
+**/__pycache__
+**/.DS_Store
+.env
+client/dist
+server/chroma_db
