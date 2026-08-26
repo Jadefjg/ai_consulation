@@ -7,7 +7,7 @@ import request from '@/utils/request'
 import { formatDateTime } from '@/utils/format'
 
 const userStore = useUserStore()
-const md = new MarkdownIt()
+const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
 const sessions = ref([])
 const messages = ref([])
@@ -31,10 +31,19 @@ async function loadMessages(sessionId) {
   currentSessionId.value = sessionId
   try {
     const res = await request.get(`/chat/sessions/${sessionId}/messages`)
-    messages.value = (res.data || []).map((m) => ({
-      ...m,
-      html: m.role === 'assistant' ? md.render(m.content || '') : m.content,
-    }))
+    messages.value = (res.data || []).map((m) => {
+      let references = []
+      try {
+        references = m.references_json ? JSON.parse(m.references_json) : []
+      } catch {
+        references = []
+      }
+      return {
+        ...m,
+        references,
+        html: m.role === 'assistant' ? md.render(m.content || '') : m.content,
+      }
+    })
     scrollToBottom()
   } catch {
     messages.value = []
@@ -108,6 +117,9 @@ async function sendMessage() {
               assistantMsg.content += parsed.content
               assistantMsg.html = md.render(assistantMsg.content)
               scrollToBottom()
+            } else if (parsed.type === 'done') {
+              assistantMsg.references = parsed.references || []
+              assistantMsg.graph = parsed.graph || []
             } else if (parsed.type === 'error') {
               throw new Error(parsed.message || 'AI 回复失败')
             }
@@ -177,6 +189,12 @@ onMounted(() => {
           <div class="message-bubble">
             <div v-if="msg.role === 'assistant'" class="markdown-body" v-html="msg.html"></div>
             <div v-else>{{ msg.content }}</div>
+            <div v-if="msg.role === 'assistant' && msg.references?.length" class="msg-refs">
+              <div class="refs-title">参考来源</div>
+              <div v-for="(ref, rIdx) in msg.references" :key="rIdx" class="ref-item">
+                {{ ref.index }}. {{ ref.file_name }}
+              </div>
+            </div>
           </div>
         </div>
         <div v-if="sending" class="typing-indicator">
@@ -365,4 +383,21 @@ onMounted(() => {
 
 .markdown-body :deep(p) { margin: 0 0 8px; }
 .markdown-body :deep(ul) { padding-left: 20px; }
+
+.msg-refs {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #dcdfe6;
+  font-size: 12px;
+  color: #606266;
+}
+
+.refs-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.ref-item {
+  line-height: 1.5;
+}
 </style>

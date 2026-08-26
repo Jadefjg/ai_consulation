@@ -1,5 +1,5 @@
 """健康档案接口"""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
@@ -13,6 +13,18 @@ from schemas.common import HealthRecordCreate, HealthRecordUpdate
 from utils.helpers import format_datetime, format_date
 
 router = APIRouter()
+
+
+def _related_patient_ids(db: Session, doctor_id: int) -> set:
+    """医生可管理的关联患者 ID 集合"""
+    user_ids = set()
+    for row in db.query(Appointment.user_id).filter(Appointment.doctor_id == doctor_id).distinct():
+        user_ids.add(row.user_id)
+    for row in db.query(DoctorConsult.user_id).filter(DoctorConsult.doctor_id == doctor_id).distinct():
+        user_ids.add(row.user_id)
+    for row in db.query(HealthRecord.user_id).filter(HealthRecord.doctor_id == doctor_id).distinct():
+        user_ids.add(row.user_id)
+    return user_ids
 
 
 @router.get("/my")
@@ -32,13 +44,7 @@ def doctor_patients(db: Session = Depends(get_db), current: CurrentUser = Depend
 @router.get("/doctor/patient-options")
 def doctor_patient_options(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("doctor"))):
     """医生可选患者列表（来自预约与咨询）"""
-    user_ids = set()
-    for row in db.query(Appointment.user_id).filter(Appointment.doctor_id == current.user_id).distinct():
-        user_ids.add(row.user_id)
-    for row in db.query(DoctorConsult.user_id).filter(DoctorConsult.doctor_id == current.user_id).distinct():
-        user_ids.add(row.user_id)
-    for row in db.query(HealthRecord.user_id).filter(HealthRecord.doctor_id == current.user_id).distinct():
-        user_ids.add(row.user_id)
+    user_ids = _related_patient_ids(db, current.user_id)
     users = db.query(User).filter(User.id.in_(user_ids)).all() if user_ids else []
     return success([
         {"id": u.id, "name": u.real_name or u.username}
@@ -52,10 +58,15 @@ def doctor_create_record(
     db: Session = Depends(get_db),
     current: CurrentUser = Depends(require_roles("doctor")),
 ):
-    """医生创建患者档案"""
+    """医生创建患者档案（仅限关联患者）"""
     user = db.query(User).filter(User.id == req.user_id).first()
     if not user:
-        return success(None, "患者不存在")
+        raise HTTPException(status_code=404, detail="患者不存在")
+    related = _related_patient_ids(db, current.user_id)
+    if req.user_id not in related:
+        raise HTTPException(status_code=403, detail="只能为与您有预约或咨询关系的患者建档")
+    if not (req.record_type or "").strip():
+        raise HTTPException(status_code=400, detail="请填写档案类型")
     record = HealthRecord(
         user_id=req.user_id,
         doctor_id=current.user_id,
@@ -84,7 +95,7 @@ def doctor_update_record(
         HealthRecord.doctor_id == current.user_id,
     ).first()
     if not record:
-        return success(None, "档案不存在或无权限")
+        raise HTTPException(status_code=404, detail="档案不存在或无权限")
     if req.record_type is not None:
         record.record_type = req.record_type
     if req.diagnosis is not None:
@@ -112,7 +123,7 @@ def doctor_delete_record(
         HealthRecord.doctor_id == current.user_id,
     ).first()
     if not record:
-        return success(None, "档案不存在或无权限")
+        raise HTTPException(status_code=404, detail="档案不存在或无权限")
     db.delete(record)
     db.commit()
     return success(None, "删除成功")
@@ -120,8 +131,18 @@ def doctor_delete_record(
 
 def _format_records(items, db):
     """格式化健康档案列表"""
-    user_map = {u.id: u.real_name or u.username for u in db.query(User).all()}
-    doctor_map = {d.id: d.real_name for d in db.query(Doctor).all()}
+    if not items:
+        return []
+    user_ids = {r.user_id for r in items}
+    doctor_ids = {r.doctor_id for r in items if r.doctor_id}
+    user_map = {
+        u.id: u.real_name or u.username
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    }
+    doctor_map = {
+        d.id: d.real_name
+        for d in db.query(Doctor).filter(Doctor.id.in_(doctor_ids)).all()
+    } if doctor_ids else {}
     return [{
         "id": r.id,
         "user_id": r.user_id,

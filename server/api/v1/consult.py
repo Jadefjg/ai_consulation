@@ -18,7 +18,18 @@ router = APIRouter()
 @router.post("/create")
 def create_consult(req: DoctorConsultCreate, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
     """患者发起人工问诊"""
-    consult = DoctorConsult(user_id=current.user_id, doctor_id=req.doctor_id, chief_complaint=req.chief_complaint)
+    if not (req.chief_complaint or "").strip():
+        raise HTTPException(status_code=400, detail="请填写主诉内容")
+    doctor_id = req.doctor_id
+    if doctor_id is not None:
+        doctor = db.query(Doctor).filter(Doctor.id == doctor_id, Doctor.status == 1).first()
+        if not doctor:
+            raise HTTPException(status_code=400, detail="医生不存在或已停用")
+    consult = DoctorConsult(
+        user_id=current.user_id,
+        doctor_id=doctor_id,
+        chief_complaint=req.chief_complaint.strip(),
+    )
     db.add(consult)
     db.commit()
     return success({"id": consult.id}, "问诊提交成功")
@@ -28,7 +39,11 @@ def create_consult(req: DoctorConsultCreate, db: Session = Depends(get_db), curr
 def my_consults(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
     """患者查看自己的问诊"""
     items = db.query(DoctorConsult).filter(DoctorConsult.user_id == current.user_id).order_by(DoctorConsult.id.desc()).all()
-    doctor_map = {d.id: d.real_name for d in db.query(Doctor).all()}
+    doctor_ids = {c.doctor_id for c in items if c.doctor_id}
+    doctor_map = {
+        d.id: d.real_name
+        for d in db.query(Doctor).filter(Doctor.id.in_(doctor_ids)).all()
+    } if doctor_ids else {}
     data = []
     for c in items:
         replies = db.query(DoctorReply).filter(DoctorReply.consult_id == c.id).all()
@@ -48,7 +63,11 @@ def doctor_pending(db: Session = Depends(get_db), current: CurrentUser = Depends
         (DoctorConsult.doctor_id == current.user_id) | (DoctorConsult.doctor_id.is_(None)),
         DoctorConsult.status == 0,
     ).order_by(DoctorConsult.id.desc()).all()
-    user_map = {u.id: u.real_name or u.username for u in db.query(User).all()}
+    user_ids = {c.user_id for c in items}
+    user_map = {
+        u.id: u.real_name or u.username
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
     data = [{
         "id": c.id, "user_id": c.user_id, "user_name": user_map.get(c.user_id, ""),
         "chief_complaint": c.chief_complaint, "create_time": format_datetime(c.create_time),
@@ -58,13 +77,17 @@ def doctor_pending(db: Session = Depends(get_db), current: CurrentUser = Depends
 
 @router.post("/reply")
 def doctor_reply(req: DoctorReplyCreate, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("doctor"))):
-    """医生回复"""
+    """医生回复（仅本人工单或未分配工单）"""
     consult = db.query(DoctorConsult).filter(DoctorConsult.id == req.consult_id).first()
     if not consult:
-        return success(None, "工单不存在")
+        raise HTTPException(status_code=404, detail="工单不存在")
+    if consult.doctor_id is not None and consult.doctor_id != current.user_id:
+        raise HTTPException(status_code=403, detail="无权回复其他医生的工单")
+    if not (req.content or "").strip():
+        raise HTTPException(status_code=400, detail="回复内容不能为空")
     if not consult.doctor_id:
         consult.doctor_id = current.user_id
-    reply = DoctorReply(consult_id=req.consult_id, doctor_id=current.user_id, content=req.content)
+    reply = DoctorReply(consult_id=req.consult_id, doctor_id=current.user_id, content=req.content.strip())
     consult.status = 1
     db.add(reply)
     db.commit()
@@ -100,8 +123,16 @@ def admin_list(
         q = q.filter(DoctorConsult.status == status)
     total = q.count()
     items = q.order_by(DoctorConsult.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    user_map = {u.id: u.real_name or u.username for u in db.query(User).all()}
-    doctor_map = {d.id: d.real_name for d in db.query(Doctor).all()}
+    user_ids = {c.user_id for c in items}
+    doctor_ids = {c.doctor_id for c in items if c.doctor_id}
+    user_map = {
+        u.id: u.real_name or u.username
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
+    doctor_map = {
+        d.id: d.real_name
+        for d in db.query(Doctor).filter(Doctor.id.in_(doctor_ids)).all()
+    } if doctor_ids else {}
     data = [{
         "id": c.id, "user_name": user_map.get(c.user_id, ""), "doctor_name": doctor_map.get(c.doctor_id, "待分配"),
         "chief_complaint": c.chief_complaint, "status": c.status,

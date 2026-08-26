@@ -42,7 +42,10 @@ class RagService:
             "timeout": 300,
             "max_retries": 1,
         }
-        if not settings.llm_reasoning:
+        if not settings.llm_reasoning and any(
+            token in (settings.openai_base_url or "").lower()
+            for token in ("11434", "ollama", "localhost", "127.0.0.1", "host.docker.internal")
+        ):
             llm_kwargs["extra_body"] = {"think": False}
         self.llm = ChatOpenAI(**llm_kwargs)
         self.vector_store = get_vector_store()
@@ -82,7 +85,11 @@ class RagService:
                 )
                 db.add(db_chunk)
                 texts.append(chunk)
-                metadatas.append({"file_id": file_record.id, "file_name": file_record.file_name, "chunk_index": idx})
+                metadatas.append({
+                    "file_id": str(file_record.id),
+                    "file_name": file_record.file_name,
+                    "chunk_index": idx,
+                })
                 ids.append(vector_id)
             db.commit()
             if texts:
@@ -97,14 +104,21 @@ class RagService:
             raise e
 
     def _extract_symptoms(self, query: str) -> List[str]:
-        """从查询中提取可能的症状关键词（简单匹配）"""
+        """从查询中提取症状关键词，并做别名归一化"""
+        aliases = self.graph_service.SYMPTOM_ALIASES
         common_symptoms = [
             "头痛", "发热", "咳嗽", "乏力", "恶心", "呕吐", "腹泻", "腹痛",
             "胸闷", "心悸", "头晕", "失眠", "皮疹", "瘙痒", "水肿", "出血",
             "关节痛", "腰痛", "视力模糊", "耳鸣", "鼻塞", "咽痛", "流涕",
-            "高血压", "糖尿病", "感冒", "发烧", "过敏", "便秘", "尿频",
+            "胸痛", "感冒", "过敏", "便秘", "尿频",
         ]
-        return [s for s in common_symptoms if s in query]
+        # 别名也参与匹配
+        candidates = list(dict.fromkeys([*aliases.keys(), *common_symptoms]))
+        found = []
+        for s in candidates:
+            if s in query:
+                found.append(aliases.get(s, s))
+        return list(dict.fromkeys(found))
 
     def _build_context(self, query: str) -> tuple[str, List[Dict], List[Dict]]:
         """

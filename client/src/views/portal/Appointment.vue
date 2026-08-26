@@ -79,6 +79,15 @@ function openDialog() {
   loadDoctors()
 }
 
+/** 取消预约 */
+async function handleCancel(row) {
+  try {
+    await request.put(`/appointments/my/${row.id}/cancel`)
+    ElMessage.success('预约已取消')
+    loadList()
+  } catch { /* */ }
+}
+
 /** 提交预约 */
 async function handleCreate() {
   if (!form.department_id || !form.doctor_id || !form.visit_date || !form.time_slot) {
@@ -133,6 +142,19 @@ onMounted(() => {
         <el-table-column prop="create_time" label="创建时间" min-width="170">
           <template #default="{ row }">{{ formatDateTime(row.create_time) }}</template>
         </el-table-column>
+        <el-table-column label="操作" min-width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 0 || row.status === 1"
+              type="danger"
+              link
+              @click="handleCancel(row)"
+            >
+              取消
+            </el-button>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
       </el-table>
     </div>
 
@@ -174,5 +196,9 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.text-muted {
+  color: #c0c4cc;
 }
 </style>

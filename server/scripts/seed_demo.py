@@ -10,6 +10,7 @@ from models.article import Article, Notice
 from models.department import Department
 from models.doctor import Doctor
 from models.user import User
+from core.security import hash_password
 
 DEPARTMENTS = [
     ("内科", "常见内科疾病诊疗", 1),
@@ -53,13 +54,13 @@ def seed_demo() -> bool:
         dept_map = {d.name: d.id for d in db.query(Department).all()}
         db.add(Admin(
             username="admin",
-            password="123456",
+            password=hash_password("123456"),
             nickname="系统管理员",
             status=1,
         ))
         db.add(Doctor(
             username="doctor",
-            password="123456",
+            password=hash_password("123456"),
             real_name="张伟",
             department_id=dept_map.get("内科"),
             title="主任医师",
@@ -70,7 +71,7 @@ def seed_demo() -> bool:
         ))
         db.add(Doctor(
             username="doctor2",
-            password="123456",
+            password=hash_password("123456"),
             real_name="李娜",
             department_id=dept_map.get("心血管内科"),
             title="副主任医师",
@@ -81,7 +82,7 @@ def seed_demo() -> bool:
         ))
         db.add(User(
             username="user",
-            password="123456",
+            password=hash_password("123456"),
             real_name="王小明",
             gender=1,
             age=28,

@@ -5,13 +5,15 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.deps import require_roles, CurrentUser
-from core.response import success, page_result
+from core.response import success, page_result, error
 from db.session import get_db
 from models.knowledge import KnowledgeFile, KnowledgeChunk
 from services.rag_service import get_rag_service
 from utils.helpers import save_upload_file, get_file_type, format_datetime
 
 router = APIRouter()
+
+_KNOWLEDGE_MAX_BYTES = 20 * 1024 * 1024
 
 
 def _vectorize_task(file_id: int):
@@ -63,8 +65,12 @@ async def upload_file(
     """上传知识库文件并自动向量化"""
     file_type = get_file_type(file.filename)
     if file_type == "unknown":
-        return success(None, "不支持的文件类型，仅支持 txt/doc/pdf/markdown")
+        return error("不支持的文件类型，仅支持 txt/doc/pdf/markdown", 400)
     content = await file.read()
+    if not content:
+        return error("文件内容为空", 400)
+    if len(content) > _KNOWLEDGE_MAX_BYTES:
+        return error("文件大小不能超过20MB", 400)
     rel_path = save_upload_file(content, file.filename, "knowledge")
     abs_path = os.path.join(settings.upload_dir, "knowledge", os.path.basename(rel_path))
     record = KnowledgeFile(
@@ -87,7 +93,7 @@ def revectorize(file_id: int, background_tasks: BackgroundTasks, db: Session = D
     """重新向量化"""
     record = db.query(KnowledgeFile).filter(KnowledgeFile.id == file_id).first()
     if not record:
-        return success(None, "文件不存在")
+        return error("文件不存在", 404)
     background_tasks.add_task(_vectorize_task, file_id)
     return success(None, "已开始重新向量化")
 
@@ -96,11 +102,12 @@ def revectorize(file_id: int, background_tasks: BackgroundTasks, db: Session = D
 def delete_file(file_id: int, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
     """删除知识库文件"""
     record = db.query(KnowledgeFile).filter(KnowledgeFile.id == file_id).first()
-    if record:
-        get_rag_service().vector_store.delete_by_file_id(file_id)
-        db.query(KnowledgeChunk).filter(KnowledgeChunk.file_id == file_id).delete()
-        if os.path.exists(record.file_path):
-            os.remove(record.file_path)
-        db.delete(record)
-        db.commit()
+    if not record:
+        return error("文件不存在", 404)
+    get_rag_service().vector_store.delete_by_file_id(file_id)
+    db.query(KnowledgeChunk).filter(KnowledgeChunk.file_id == file_id).delete()
+    if os.path.exists(record.file_path):
+        os.remove(record.file_path)
+    db.delete(record)
+    db.commit()
     return success(None, "删除成功")

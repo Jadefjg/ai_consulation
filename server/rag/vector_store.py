@@ -67,11 +67,12 @@ class VectorStore:
         return items
 
     def delete_by_file_id(self, file_id: int):
-        """删除指定文件的所有向量"""
-        try:
-            self.collection.delete(where={"file_id": file_id})
-        except Exception:
-            pass
+        """删除指定文件的所有向量（兼容 int/str 元数据）"""
+        for value in (file_id, str(file_id)):
+            try:
+                self.collection.delete(where={"file_id": value})
+            except Exception as exc:
+                print(f"[VectorStore] delete_by_file_id({value}) failed: {exc}", flush=True)
 
 
 # 全局单例

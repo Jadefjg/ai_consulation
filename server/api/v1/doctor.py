@@ -10,6 +10,7 @@ from models.department import Department
 from models.appointment import Appointment, HealthRecord
 from models.doctor_consult import DoctorConsult, DoctorReply
 from schemas.common import DoctorCreate, DoctorUpdate
+from core.security import hash_password
 from utils.helpers import format_datetime
 
 router = APIRouter()
@@ -92,7 +93,7 @@ def create_doctor(
         raise HTTPException(status_code=400, detail="用户名已存在")
     doctor = Doctor(
         username=req.username,
-        password=req.password,
+        password=hash_password(req.password),
         real_name=req.real_name,
         department_id=req.department_id,
         title=req.title,
@@ -124,7 +125,7 @@ def update_doctor(
             raise HTTPException(status_code=400, detail="请填写确认密码")
         if req.password != req.confirm_password:
             raise HTTPException(status_code=400, detail="两次密码输入不一致")
-        doctor.password = req.password
+        doctor.password = hash_password(req.password)
     if req.real_name is not None:
         doctor.real_name = req.real_name
     if req.department_id is not None:

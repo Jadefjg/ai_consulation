@@ -101,8 +101,8 @@ _local_llm = any(token in OPENAI_BASE_URL.lower() for token in ("127.0.0.1", "lo
 if not OPENAI_API_KEY and _local_llm:
     OPENAI_API_KEY = "ollama"
 
-# 文件上传目录（Docker 中设为 /data/uploads）
-UPLOAD_DIR = _env("UPLOAD_DIR", "D:/uploads33")
+# 文件上传目录（Docker 中设为 /data/uploads；本地默认项目内 uploads）
+UPLOAD_DIR = _env("UPLOAD_DIR", str(BASE_DIR / "uploads"))
 
 # Chroma向量数据库目录
 CHROMA_PERSIST_DIR = _env("CHROMA_PERSIST_DIR", str(BASE_DIR / "chroma_db"))

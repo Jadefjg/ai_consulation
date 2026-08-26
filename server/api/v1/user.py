@@ -10,6 +10,7 @@ from models.appointment import Appointment, HealthRecord
 from models.consult import ConsultSession, ConsultMessage
 from models.doctor_consult import DoctorConsult, DoctorReply
 from schemas.common import UserCreate, UserUpdate
+from core.security import hash_password
 from utils.helpers import format_datetime
 
 router = APIRouter()
@@ -67,7 +68,7 @@ def create_user(
         raise HTTPException(status_code=400, detail="用户名已存在")
     user = User(
         username=req.username,
-        password=req.password,
+        password=hash_password(req.password),
         real_name=req.real_name,
         gender=req.gender,
         age=req.age,
@@ -97,7 +98,7 @@ def update_user(
             raise HTTPException(status_code=400, detail="请填写确认密码")
         if req.password != req.confirm_password:
             raise HTTPException(status_code=400, detail="两次密码输入不一致")
-        user.password = req.password
+        user.password = hash_password(req.password)
     if req.real_name is not None:
         user.real_name = req.real_name
     if req.gender is not None:

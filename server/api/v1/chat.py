@@ -1,13 +1,14 @@
 """AI问诊接口 - SSE流式"""
 import json
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
-from core.response import success
+from core.response import success, page_result
 from db.session import get_db
 from models.consult import ConsultSession, ConsultMessage
+from models.user import User
 from schemas.common import ChatRequest
 from services.rag_service import get_rag_service
 from utils.helpers import format_datetime
@@ -25,7 +26,13 @@ def list_sessions(db: Session = Depends(get_db), current: CurrentUser = Depends(
 
 @router.get("/sessions/{session_id}/messages")
 def get_messages(session_id: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
-    """获取会话消息"""
+    """获取会话消息（仅本人会话）"""
+    session = db.query(ConsultSession).filter(
+        ConsultSession.id == session_id,
+        ConsultSession.user_id == current.user_id,
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="会话不存在")
     msgs = db.query(ConsultMessage).filter(ConsultMessage.session_id == session_id).order_by(ConsultMessage.id).all()
     data = [{
         "id": m.id, "role": m.role, "content": m.content,
@@ -38,31 +45,30 @@ def get_messages(session_id: int, db: Session = Depends(get_db), current: Curren
 @router.post("/send")
 async def chat_send(req: ChatRequest, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
     """AI问诊 - SSE流式回复"""
-    # 获取或创建会话
     if req.session_id:
-        session = db.query(ConsultSession).filter(ConsultSession.id == req.session_id, ConsultSession.user_id == current.user_id).first()
+        session = db.query(ConsultSession).filter(
+            ConsultSession.id == req.session_id,
+            ConsultSession.user_id == current.user_id,
+        ).first()
+        if not session:
+            raise HTTPException(status_code=404, detail="会话不存在或无权访问")
     else:
-        session = None
-    if not session:
         title = req.message[:20] + ("..." if len(req.message) > 20 else "")
         session = ConsultSession(user_id=current.user_id, title=title)
         db.add(session)
         db.commit()
         db.refresh(session)
 
-    # 保存用户消息
     user_msg = ConsultMessage(session_id=session.id, role="user", content=req.message)
     db.add(user_msg)
     db.commit()
 
-    # 获取历史
     history_msgs = db.query(ConsultMessage).filter(ConsultMessage.session_id == session.id).order_by(ConsultMessage.id).all()
     history = [{"role": m.role, "content": m.content} for m in history_msgs[:-1]]
 
     session_id = session.id
 
     async def event_generator():
-        # 先推送会话ID，便于前端关联新对话
         yield f"data: {json.dumps({'type': 'session', 'session_id': session_id}, ensure_ascii=False)}\n\n"
         full_content = ""
         references = []
@@ -85,7 +91,6 @@ async def chat_send(req: ChatRequest, db: Session = Depends(get_db), current: Cu
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
             return
-        # 保存助手消息
         from db.session import SessionLocal
         sdb = SessionLocal()
         try:
@@ -115,12 +120,14 @@ def admin_sessions(
     _: CurrentUser = Depends(require_roles("admin")),
 ):
     """管理员查看所有问诊记录"""
-    from core.response import page_result
-    from models.user import User
     q = db.query(ConsultSession)
     total = q.count()
     items = q.order_by(ConsultSession.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    user_map = {u.id: u.real_name or u.username for u in db.query(User).all()}
+    user_ids = {s.user_id for s in items}
+    user_map = {
+        u.id: u.real_name or u.username
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
     data = [{
         "id": s.id, "user_id": s.user_id, "user_name": user_map.get(s.user_id, ""),
         "title": s.title, "message_count": s.message_count,

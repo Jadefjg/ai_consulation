@@ -34,8 +34,8 @@ class TokenResponse(BaseModel):
 
 class PasswordChangeRequest(BaseModel):
     """修改密码请求"""
-    old_password: str
-    new_password: str
+    old_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6)
 
 
 class ProfileUpdateRequest(BaseModel):

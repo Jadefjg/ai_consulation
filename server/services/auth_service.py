@@ -2,7 +2,12 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from core.security import verify_password, create_access_token
+from core.security import (
+    verify_password,
+    create_access_token,
+    hash_password,
+    is_password_hashed,
+)
 from models.admin import Admin
 from models.doctor import Doctor
 from models.user import User
@@ -36,6 +41,11 @@ class AuthService:
         if hasattr(user, "status") and user.status == 0:
             raise HTTPException(status_code=403, detail="账号已被禁用")
 
+        # 登录成功后把历史明文密码升级为哈希
+        if not is_password_hashed(user.password):
+            user.password = hash_password(req.password)
+            db.commit()
+
         token = create_access_token({
             "sub": user.username,
             "user_id": user.id,
@@ -62,7 +72,7 @@ class AuthService:
             raise HTTPException(status_code=400, detail="用户名已存在")
         user = User(
             username=req.username,
-            password=req.password,
+            password=hash_password(req.password),
             real_name=req.real_name,
             phone=req.phone,
             gender=1,

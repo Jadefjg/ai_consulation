@@ -10,7 +10,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
     username = Column(String(50), unique=True, nullable=False, comment="用户名")
-    password = Column(String(100), nullable=False, comment="密码")
+    password = Column(String(255), nullable=False, comment="密码")
     real_name = Column(String(50), comment="用户昵称")
     gender = Column(Integer, default=1, comment="性别:1男2女")
     age = Column(Integer, comment="年龄")

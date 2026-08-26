@@ -17,10 +17,25 @@ from utils.helpers import format_datetime, format_date
 
 router = APIRouter()
 
+_VALID_STATUS = {0, 1, 2, 3}
+_VALID_SLOTS = {"上午", "下午", "晚上"}
+
 
 @router.post("/create")
 def create_appointment(req: AppointmentCreate, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
     """创建预约"""
+    if req.time_slot not in _VALID_SLOTS:
+        raise HTTPException(status_code=400, detail="时段仅支持：上午、下午、晚上")
+    if req.visit_date < date.today():
+        raise HTTPException(status_code=400, detail="就诊日期不能早于今天")
+    doctor = db.query(Doctor).filter(Doctor.id == req.doctor_id, Doctor.status == 1).first()
+    if not doctor:
+        raise HTTPException(status_code=400, detail="医生不存在或已停用")
+    dept = db.query(Department).filter(Department.id == req.department_id, Department.status == 1).first()
+    if not dept:
+        raise HTTPException(status_code=400, detail="科室不存在或已停用")
+    if doctor.department_id and doctor.department_id != req.department_id:
+        raise HTTPException(status_code=400, detail="医生与所选科室不匹配")
     appt = Appointment(
         user_id=current.user_id, doctor_id=req.doctor_id,
         department_id=req.department_id, visit_date=req.visit_date,
@@ -36,6 +51,22 @@ def my_appointments(db: Session = Depends(get_db), current: CurrentUser = Depend
     """我的预约"""
     items = db.query(Appointment).filter(Appointment.user_id == current.user_id).order_by(Appointment.id.desc()).all()
     return success(_format_appts(items, db))
+
+
+@router.put("/my/{appt_id}/cancel")
+def cancel_my_appointment(appt_id: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
+    """患者取消自己的预约（仅待确认/已确认）"""
+    appt = db.query(Appointment).filter(
+        Appointment.id == appt_id,
+        Appointment.user_id == current.user_id,
+    ).first()
+    if not appt:
+        raise HTTPException(status_code=404, detail="预约不存在")
+    if appt.status not in (0, 1):
+        raise HTTPException(status_code=400, detail="当前状态不可取消")
+    appt.status = 3
+    db.commit()
+    return success(None, "预约已取消")
 
 
 @router.get("/doctor/my")
@@ -101,18 +132,37 @@ def admin_delete_appointment(
 @router.put("/{appt_id}/status")
 def update_status(appt_id: int, status: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin", "doctor"))):
     """更新预约状态"""
+    if status not in _VALID_STATUS:
+        raise HTTPException(status_code=400, detail="无效的预约状态")
     appt = db.query(Appointment).filter(Appointment.id == appt_id).first()
-    if appt:
-        appt.status = status
-        db.commit()
+    if not appt:
+        raise HTTPException(status_code=404, detail="预约不存在")
+    if current.role == "doctor" and appt.doctor_id != current.user_id:
+        raise HTTPException(status_code=403, detail="无权修改其他医生的预约")
+    appt.status = status
+    db.commit()
     return success(None, "状态更新成功")
 
 
 def _format_appts(items, db):
     """格式化预约列表"""
-    user_map = {u.id: u.real_name or u.username for u in db.query(User).all()}
-    doctor_map = {d.id: d.real_name for d in db.query(Doctor).all()}
-    dept_map = {d.id: d.name for d in db.query(Department).all()}
+    if not items:
+        return []
+    user_ids = {a.user_id for a in items}
+    doctor_ids = {a.doctor_id for a in items}
+    dept_ids = {a.department_id for a in items}
+    user_map = {
+        u.id: u.real_name or u.username
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    }
+    doctor_map = {
+        d.id: d.real_name
+        for d in db.query(Doctor).filter(Doctor.id.in_(doctor_ids)).all()
+    }
+    dept_map = {
+        d.id: d.name
+        for d in db.query(Department).filter(Department.id.in_(dept_ids)).all()
+    }
     return [{
         "id": a.id, "user_id": a.user_id, "user_name": user_map.get(a.user_id, ""),
         "doctor_id": a.doctor_id, "doctor_name": doctor_map.get(a.doctor_id, ""),

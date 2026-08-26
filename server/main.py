@@ -66,11 +66,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content={"code": 422, "message": message, "data": None},
     )
-# CORS跨域
+# CORS跨域（Bearer Token 场景不依赖 Cookie，无需 credentials）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

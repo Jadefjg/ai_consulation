@@ -28,7 +28,7 @@ def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> CurrentUser:
-    """获取当前登录用户"""
+    """获取当前登录用户（禁用账号立即失效）"""
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="未登录")
     payload = decode_access_token(credentials.credentials)
@@ -49,6 +49,8 @@ def get_current_user(
         obj = db.query(User).filter(User.id == user_id).first()
     if not obj:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
+    if getattr(obj, "status", 1) == 0:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被禁用")
     return CurrentUser(user_id=user_id, username=username, role=role, obj=obj)
 
 

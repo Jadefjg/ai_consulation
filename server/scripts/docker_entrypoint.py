@@ -70,11 +70,24 @@ def wait_for_neo4j(timeout: int = 180) -> None:
 
 
 def ensure_schema() -> None:
-    """根据 ORM 创建缺失数据表"""
+    """根据 ORM 创建缺失数据表，并兼容扩容 password 字段"""
+    from sqlalchemy import text
     from db.session import engine, Base
     import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    # 兼容旧库：明文密码列过短，哈希后需扩容
+    alter_sql = [
+        "ALTER TABLE t_admin MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
+        "ALTER TABLE t_user MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
+        "ALTER TABLE t_doctor MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
+    ]
+    with engine.begin() as conn:
+        for sql in alter_sql:
+            try:
+                conn.execute(text(sql))
+            except Exception as exc:
+                print(f"[entrypoint] 跳过字段扩容: {exc}")
     print("[entrypoint] 数据表检查完成")
 
 

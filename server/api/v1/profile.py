@@ -1,19 +1,18 @@
 """个人中心接口"""
-import os
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 
 from core.deps import get_current_user, CurrentUser
 from core.response import success
-from core.security import verify_password
+from core.security import verify_password, hash_password
 from db.session import get_db
-from models.admin import Admin
-from models.doctor import Doctor
-from models.user import User
 from schemas.common import ProfileUpdateRequest, PasswordChangeRequest
 from utils.helpers import save_upload_file, format_datetime
 
 router = APIRouter()
+
+_AVATAR_MAX_BYTES = 2 * 1024 * 1024
+_AVATAR_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 @router.get("/info")
@@ -74,8 +73,12 @@ def change_password(req: PasswordChangeRequest, db: Session = Depends(get_db), c
     """修改密码"""
     obj = current.obj
     if not verify_password(req.old_password, obj.password):
-        return success(None, "原密码错误")
-    obj.password = req.new_password
+        raise HTTPException(status_code=400, detail="原密码错误")
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="新密码至少6个字符")
+    if req.old_password == req.new_password:
+        raise HTTPException(status_code=400, detail="新密码不能与原密码相同")
+    obj.password = hash_password(req.new_password)
     db.commit()
     return success(None, "密码修改成功")
 
@@ -83,8 +86,17 @@ def change_password(req: PasswordChangeRequest, db: Session = Depends(get_db), c
 @router.post("/avatar")
 async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(get_db), current: CurrentUser = Depends(get_current_user)):
     """上传头像"""
+    import os
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in _AVATAR_EXTS:
+        raise HTTPException(status_code=400, detail="头像仅支持 jpg/png/gif/webp")
     content = await file.read()
-    rel_path = save_upload_file(content, file.filename, "avatar")
+    if not content:
+        raise HTTPException(status_code=400, detail="文件内容为空")
+    if len(content) > _AVATAR_MAX_BYTES:
+        raise HTTPException(status_code=400, detail="头像大小不能超过2MB")
+    rel_path = save_upload_file(content, filename, "avatar")
     current.obj.avatar = rel_path
     db.commit()
     return success({"avatar": rel_path}, "头像上传成功")
