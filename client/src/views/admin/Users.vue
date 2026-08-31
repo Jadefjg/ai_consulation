@@ -8,7 +8,7 @@ const list = ref([])
 const loading = ref(false)
 const keyword = ref('')
 const page = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(20)
 const total = ref(0)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -230,6 +230,16 @@ onMounted(loadList)
           </template>
         </el-table-column>
         <el-table-column prop="age" label="年龄" min-width="70" />
+        <el-table-column prop="role_label" label="角色" min-width="90">
+          <template #default="{ row }">
+            <el-tag
+              :type="row.role === 'root' ? 'danger' : row.role === 'admin' ? 'danger' : row.role === 'doctor' ? 'warning' : 'primary'"
+              size="small"
+            >
+              {{ row.role_label || '用户' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="phone" label="手机号" min-width="130" />
         <el-table-column prop="status" label="状态" min-width="80">
           <template #default="{ row }">
@@ -243,11 +253,16 @@ onMounted(loadList)
         </el-table-column>
         <el-table-column label="操作" min-width="200" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-            <el-button link :type="row.status === 1 ? 'warning' : 'success'" @click="toggleStatus(row)">
-              {{ row.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <template v-if="row.role === 'user'">
+              <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+              <el-button link :type="row.status === 1 ? 'warning' : 'success'" @click="toggleStatus(row)">
+                {{ row.status === 1 ? '禁用' : '启用' }}
+              </el-button>
+              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
+            <span v-else class="role-hint">
+              {{ row.role === 'root' ? '超级管理员账号' : `请在「${row.role === 'doctor' ? '医生' : '管理员'}管理」中操作` }}
+            </span>
           </template>
         </el-table-column>
       </el-table>
@@ -358,5 +373,9 @@ onMounted(loadList)
   display: flex;
   justify-content: flex-end;
   margin-top: 16px;
+}
+.role-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 </style>

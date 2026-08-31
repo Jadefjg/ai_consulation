@@ -32,7 +32,7 @@ request.interceptors.response.use(
     }
     return res
   },
-  (error) => {
+  async (error) => {
     const data = error.response?.data || {}
     const detail = data.detail
     const detailText = typeof detail === 'string'
@@ -41,11 +41,18 @@ request.interceptors.response.use(
         ? detail.map((item) => item.msg || item.message || JSON.stringify(item)).join('；')
         : ''
     const message = data.message || detailText || error.message || '网络异常'
-    if (error.response?.status === 401) {
+    const isLoginRequest = error.config?.url?.includes('/auth/login')
+    if (error.response?.status === 401 && !isLoginRequest) {
       const userStore = useUserStore()
-      userStore.logout()
+      userStore.clearAuth()
+      const { default: router } = await import('@/router')
+      if (router.currentRoute.value.path !== '/login') {
+        ElMessage.warning('登录已过期，请重新登录')
+        router.push('/login')
+      }
+    } else {
+      ElMessage.error(message)
     }
-    ElMessage.error(message)
     return Promise.reject(error)
   },
 )

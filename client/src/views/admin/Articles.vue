@@ -89,7 +89,7 @@ async function openEdit(row) {
   }
   dialogVisible.value = true
   try {
-    const res = await request.get(`/articles/${row.id}`)
+    const res = await request.get(`/articles/admin/${row.id}`)
     if (res.data) {
       form.value.content = res.data.content || ''
     }

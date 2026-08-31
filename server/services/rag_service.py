@@ -101,6 +101,7 @@ class RagService:
         except Exception as e:
             file_record.vector_status = 3
             db.commit()
+            _rag_log("向量化", f"文件处理失败 id={file_record.id} name={file_record.file_name}: {e}")
             raise e
 
     def _extract_symptoms(self, query: str) -> List[str]:

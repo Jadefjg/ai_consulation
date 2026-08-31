@@ -1,6 +1,6 @@
 """AI问诊接口 - SSE流式"""
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -115,7 +115,8 @@ async def chat_send(req: ChatRequest, db: Session = Depends(get_db), current: Cu
 
 @router.get("/admin/sessions")
 def admin_sessions(
-    page: int = 1, page_size: int = 10,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db),
     _: CurrentUser = Depends(require_roles("admin")),
 ):

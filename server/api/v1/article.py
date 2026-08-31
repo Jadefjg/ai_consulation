@@ -1,5 +1,5 @@
 """健康科普文章接口"""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
@@ -13,8 +13,13 @@ router = APIRouter()
 
 
 @router.get("/list")
-def list_articles(page: int = 1, page_size: int = 10, category: str = "", db: Session = Depends(get_db)):
-    """文章列表（公开）"""
+def list_articles(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    category: str = "",
+    db: Session = Depends(get_db),
+):
+    """文章列表（公开，仅已发布）"""
     q = db.query(Article).filter(Article.status == 1)
     if category:
         q = q.filter(Article.category == category)
@@ -55,18 +60,44 @@ def admin_list_articles(
     return page_result(data, total, page, page_size)
 
 
+@router.get("/admin/{article_id}")
+def admin_get_article(
+    article_id: int,
+    db: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
+    """文章详情（管理员，不计浏览量）"""
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    return success({
+        "id": article.id,
+        "title": article.title,
+        "category": article.category,
+        "summary": article.summary,
+        "content": article.content,
+        "status": article.status,
+        "view_count": article.view_count,
+        "create_time": format_datetime(article.create_time),
+    })
+
+
 @router.get("/{article_id}")
 def get_article(article_id: int, db: Session = Depends(get_db)):
-    """文章详情"""
-    article = db.query(Article).filter(Article.id == article_id).first()
-    if article:
-        article.view_count = (article.view_count or 0) + 1
-        db.commit()
+    """文章详情（公开，仅已发布）"""
+    article = db.query(Article).filter(Article.id == article_id, Article.status == 1).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在或已下架")
+    article.view_count = (article.view_count or 0) + 1
+    db.commit()
     return success({
-        "id": article.id, "title": article.title, "category": article.category,
-        "content": article.content, "view_count": article.view_count,
+        "id": article.id,
+        "title": article.title,
+        "category": article.category,
+        "content": article.content,
+        "view_count": article.view_count,
         "create_time": format_datetime(article.create_time),
-    } if article else None)
+    })
 
 
 @router.post("/create")
@@ -82,19 +113,23 @@ def create_article(req: ArticleCreate, db: Session = Depends(get_db), _: Current
 def update_article(article_id: int, req: ArticleCreate, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
     """更新文章"""
     article = db.query(Article).filter(Article.id == article_id).first()
-    if article:
-        article.title = req.title
-        article.category = req.category
-        article.summary = req.summary
-        article.content = req.content
-        article.status = req.status
-        db.commit()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    article.title = req.title
+    article.category = req.category
+    article.summary = req.summary
+    article.content = req.content
+    article.status = req.status
+    db.commit()
     return success(None, "更新成功")
 
 
 @router.delete("/{article_id}")
 def delete_article(article_id: int, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
     """删除文章"""
-    db.query(Article).filter(Article.id == article_id).delete()
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    db.delete(article)
     db.commit()
     return success(None, "删除成功")

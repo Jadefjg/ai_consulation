@@ -83,6 +83,14 @@ const roleHomeMap = {
   user: '/portal/home',
   doctor: '/doctor/dashboard',
   admin: '/admin/dashboard',
+  root: '/admin/dashboard',
+}
+
+/** 是否可访问管理后台路由 */
+function canAccessAdminRoute(userRole, requiredRole) {
+  if (userRole === requiredRole) return true
+  if (requiredRole === 'admin' && userRole === 'root') return true
+  return false
 }
 
 /**
@@ -124,7 +132,7 @@ router.beforeEach((to, from, next) => {
   }
 
   const requiredRole = to.matched.find((r) => r.meta.role)?.meta.role
-  if (requiredRole && userStore.role !== requiredRole) {
+  if (requiredRole && !canAccessAdminRoute(userStore.role, requiredRole)) {
     next(getRoleHome(userStore.role) || '/login')
     return
   }

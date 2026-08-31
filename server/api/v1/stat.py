@@ -1,5 +1,5 @@
 """数据统计接口"""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
@@ -25,7 +25,11 @@ def user_overview(db: Session = Depends(get_db), current: CurrentUser = Depends(
 
 
 @router.get("/consult-trend")
-def consult_trend(days: int = 7, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+def consult_trend(
+    days: int = Query(7, ge=1, le=365),
+    db: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
     """问诊趋势"""
     return success(StatService.consult_trend(db, days))
 
@@ -37,7 +41,11 @@ def appointment_dept(db: Session = Depends(get_db), _: CurrentUser = Depends(req
 
 
 @router.get("/user-growth")
-def user_growth(days: int = 7, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+def user_growth(
+    days: int = Query(7, ge=1, le=365),
+    db: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
     """用户增长"""
     return success(StatService.user_growth(db, days))
 

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import request from '@/utils/request'
+import { getTokenRole, isTokenExpired } from '@/utils/jwt'
 
 /**
  * 安全解析 localStorage 中的 JSON 数据
@@ -16,16 +17,30 @@ function safeParseJson(value, fallback = null) {
   }
 }
 
+/** 初始化时校验 token 是否仍有效 */
+function initToken() {
+  const stored = localStorage.getItem('token') || ''
+  if (stored && isTokenExpired(stored)) {
+    localStorage.removeItem('token')
+    localStorage.removeItem('role')
+    localStorage.removeItem('userInfo')
+    return ''
+  }
+  return stored
+}
+
 /**
  * 用户认证状态管理
  */
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('token') || '')
-  const role = ref(localStorage.getItem('role') || '')
+  const token = ref(initToken())
   const userInfo = ref(safeParseJson(localStorage.getItem('userInfo'), null))
 
+  /** 从 JWT 读取角色，不信任 localStorage 单独存储 */
+  const role = computed(() => getTokenRole(token.value) || userInfo.value?.role || '')
+
   /** 是否已登录 */
-  const isLoggedIn = computed(() => !!token.value)
+  const isLoggedIn = computed(() => !!token.value && !isTokenExpired(token.value))
 
   /**
    * 用户登录
@@ -35,16 +50,16 @@ export const useUserStore = defineStore('user', () => {
     const res = await request.post('/auth/login', payload)
     const data = res.data
     token.value = data.access_token || data.token
-    role.value = data.role || payload.role
     userInfo.value = {
       user_id: data.user_id,
       username: data.username,
       nickname: data.nickname,
+      real_name: data.nickname || data.real_name,
       avatar: data.avatar,
-      role: data.role,
+      role: data.role || payload.role,
     }
     localStorage.setItem('token', token.value)
-    localStorage.setItem('role', role.value)
+    localStorage.setItem('role', userInfo.value.role)
     localStorage.setItem('userInfo', JSON.stringify(userInfo.value))
     return data
   }
@@ -52,7 +67,6 @@ export const useUserStore = defineStore('user', () => {
   /** 清除登录态（不触发路由跳转） */
   function clearAuth() {
     token.value = ''
-    role.value = ''
     userInfo.value = null
     localStorage.removeItem('token')
     localStorage.removeItem('role')

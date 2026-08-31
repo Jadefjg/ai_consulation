@@ -1,11 +1,12 @@
 <script setup>
-import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 import { User, Lock, Setting, ChatDotRound, Calendar, FirstAidKit, DataAnalysis } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const loading = ref(false)
 
@@ -14,6 +15,13 @@ const form = reactive({
   username: '',
   password: '',
   role: 'user',
+})
+
+onMounted(() => {
+  const queryRole = route.query.role
+  if (queryRole && ['user', 'doctor', 'admin'].includes(queryRole)) {
+    form.role = queryRole
+  }
 })
 
 /** 角色选项 */
@@ -41,8 +49,8 @@ async function handleLogin() {
   try {
     await userStore.login(form)
     ElMessage.success('登录成功')
-    const homeMap = { user: '/portal/home', doctor: '/doctor/dashboard', admin: '/admin/dashboard' }
-    router.push(homeMap[form.role] || '/portal/home')
+    const homeMap = { user: '/portal/home', doctor: '/doctor/dashboard', admin: '/admin/dashboard', root: '/admin/dashboard' }
+    router.push(homeMap[form.role] || homeMap[userStore.role] || '/portal/home')
   } catch {
     /* 错误已在拦截器处理 */
   } finally {

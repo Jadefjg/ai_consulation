@@ -19,6 +19,6 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/register")
 def register(req: RegisterRequest, db: Session = Depends(get_db)):
-    """患者注册（含确认密码校验）"""
+    """三角色注册（含确认密码校验）"""
     result = AuthService.register(db, req)
     return success(result.model_dump())

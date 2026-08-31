@@ -1,5 +1,5 @@
 """系统公告接口"""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
@@ -50,12 +50,14 @@ def admin_list_notices(
 def get_notice(notice_id: int, db: Session = Depends(get_db)):
     """公告详情"""
     notice = db.query(Notice).filter(Notice.id == notice_id, Notice.status == 1).first()
+    if not notice:
+        raise HTTPException(status_code=404, detail="公告不存在或已下架")
     return success({
         "id": notice.id,
         "title": notice.title,
         "content": notice.content,
         "create_time": format_datetime(notice.create_time),
-    } if notice else None)
+    })
 
 
 @router.post("/create")
@@ -76,17 +78,21 @@ def update_notice(
 ):
     """更新公告"""
     notice = db.query(Notice).filter(Notice.id == notice_id).first()
-    if notice:
-        notice.title = req.title
-        notice.content = req.content
-        notice.status = req.status
-        db.commit()
+    if not notice:
+        raise HTTPException(status_code=404, detail="公告不存在")
+    notice.title = req.title
+    notice.content = req.content
+    notice.status = req.status
+    db.commit()
     return success(None, "更新成功")
 
 
 @router.delete("/{notice_id}")
 def delete_notice(notice_id: int, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
     """删除公告"""
-    db.query(Notice).filter(Notice.id == notice_id).delete()
+    notice = db.query(Notice).filter(Notice.id == notice_id).first()
+    if not notice:
+        raise HTTPException(status_code=404, detail="公告不存在")
+    db.delete(notice)
     db.commit()
     return success(None, "删除成功")

@@ -81,6 +81,7 @@ def ensure_schema() -> None:
         "ALTER TABLE t_admin MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
         "ALTER TABLE t_user MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
         "ALTER TABLE t_doctor MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
+        "ALTER TABLE t_admin ADD COLUMN admin_role VARCHAR(20) DEFAULT 'admin' COMMENT '管理员类型: admin/root'",
     ]
     with engine.begin() as conn:
         for sql in alter_sql:
@@ -99,6 +100,9 @@ def main() -> None:
 
     from scripts.seed_demo import seed_demo
     seed_demo()
+
+    from scripts.ensure_root import ensure_root_admin
+    ensure_root_admin()
 
     if _truthy("INIT_GRAPH", "true"):
         print("[entrypoint] 开始初始化知识图谱")

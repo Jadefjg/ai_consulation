@@ -5,9 +5,18 @@ import MarkdownIt from 'markdown-it'
 import { useUserStore } from '@/stores/user'
 import request from '@/utils/request'
 import { formatDateTime } from '@/utils/format'
+import { sanitizeHtml } from '@/utils/sanitize'
 
 const userStore = useUserStore()
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
+md.validateLink = (url) => /^https?:\/\//i.test(url)
+
+let msgSeq = 0
+
+/** 渲染助手消息 HTML */
+function renderAssistantHtml(content) {
+  return sanitizeHtml(md.render(content || ''))
+}
 
 const sessions = ref([])
 const messages = ref([])
@@ -40,8 +49,9 @@ async function loadMessages(sessionId) {
       }
       return {
         ...m,
+        id: m.id || `hist-${m.id}`,
         references,
-        html: m.role === 'assistant' ? md.render(m.content || '') : m.content,
+        html: m.role === 'assistant' ? renderAssistantHtml(m.content) : m.content,
       }
     })
     scrollToBottom()
@@ -71,12 +81,12 @@ async function sendMessage() {
   const content = inputText.value.trim()
   if (!content || sending.value) return
 
-  messages.value.push({ role: 'user', content, html: content })
+  messages.value.push({ id: `u-${++msgSeq}`, role: 'user', content, html: content })
   inputText.value = ''
   sending.value = true
   scrollToBottom()
 
-  const assistantMsg = { role: 'assistant', content: '', html: '' }
+  const assistantMsg = { id: `a-${++msgSeq}`, role: 'assistant', content: '', html: '' }
   messages.value.push(assistantMsg)
 
   try {
@@ -92,7 +102,15 @@ async function sendMessage() {
       }),
     })
 
-    if (!response.ok) throw new Error('发送失败')
+    if (!response.ok) {
+      if (response.status === 401) {
+        userStore.clearAuth()
+        const { default: router } = await import('@/router')
+        router.push('/login')
+        throw new Error('登录已过期')
+      }
+      throw new Error('发送失败')
+    }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -115,7 +133,7 @@ async function sendMessage() {
               currentSessionId.value = parsed.session_id
             } else if (parsed.type === 'content' && parsed.content) {
               assistantMsg.content += parsed.content
-              assistantMsg.html = md.render(assistantMsg.content)
+              assistantMsg.html = renderAssistantHtml(assistantMsg.content)
               scrollToBottom()
             } else if (parsed.type === 'done') {
               assistantMsg.references = parsed.references || []
@@ -126,7 +144,7 @@ async function sendMessage() {
           } catch (err) {
             if (err instanceof SyntaxError) {
               assistantMsg.content += data
-              assistantMsg.html = md.render(assistantMsg.content)
+              assistantMsg.html = renderAssistantHtml(assistantMsg.content)
               scrollToBottom()
             } else {
               throw err
@@ -181,7 +199,7 @@ onMounted(() => {
         </div>
         <div
           v-for="(msg, idx) in messages"
-          :key="idx"
+          :key="msg.id || idx"
           class="message"
           :class="msg.role"
         >

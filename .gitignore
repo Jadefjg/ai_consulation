@@ -6,3 +6,5 @@
 *.pyc
 server/chroma_db/
 *.log
+
+ali.txt

@@ -44,9 +44,17 @@ def my_consults(db: Session = Depends(get_db), current: CurrentUser = Depends(re
         d.id: d.real_name
         for d in db.query(Doctor).filter(Doctor.id.in_(doctor_ids)).all()
     } if doctor_ids else {}
+    consult_ids = [c.id for c in items]
+    all_replies = (
+        db.query(DoctorReply).filter(DoctorReply.consult_id.in_(consult_ids)).all()
+        if consult_ids else []
+    )
+    reply_map: dict[int, list] = {}
+    for reply in all_replies:
+        reply_map.setdefault(reply.consult_id, []).append(reply)
     data = []
     for c in items:
-        replies = db.query(DoctorReply).filter(DoctorReply.consult_id == c.id).all()
+        replies = reply_map.get(c.id, [])
         data.append({
             "id": c.id, "doctor_id": c.doctor_id, "doctor_name": doctor_map.get(c.doctor_id, "待分配"),
             "chief_complaint": c.chief_complaint, "status": c.status,
@@ -77,8 +85,13 @@ def doctor_pending(db: Session = Depends(get_db), current: CurrentUser = Depends
 
 @router.post("/reply")
 def doctor_reply(req: DoctorReplyCreate, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("doctor"))):
-    """医生回复（仅本人工单或未分配工单）"""
-    consult = db.query(DoctorConsult).filter(DoctorConsult.id == req.consult_id).first()
+    """医生回复（仅本人工单或未分配工单，行级锁防并发抢单）"""
+    consult = (
+        db.query(DoctorConsult)
+        .filter(DoctorConsult.id == req.consult_id)
+        .with_for_update()
+        .first()
+    )
     if not consult:
         raise HTTPException(status_code=404, detail="工单不存在")
     if consult.doctor_id is not None and consult.doctor_id != current.user_id:

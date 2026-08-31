@@ -27,7 +27,7 @@ def get_profile(current: CurrentUser = Depends(get_current_user)):
         "phone": getattr(obj, "phone", None),
         "create_time": format_datetime(getattr(obj, "create_time", None)),
     }
-    if current.role == "admin":
+    if current.role in ("admin", "root"):
         data["nickname"] = obj.nickname
         data["email"] = obj.email
     elif current.role == "doctor":
@@ -48,7 +48,7 @@ def get_profile(current: CurrentUser = Depends(get_current_user)):
 def update_profile(req: ProfileUpdateRequest, db: Session = Depends(get_db), current: CurrentUser = Depends(get_current_user)):
     """更新个人资料"""
     obj = current.obj
-    if current.role == "admin":
+    if current.role in ("admin", "root"):
         if req.nickname is not None: obj.nickname = req.nickname
         if req.phone is not None: obj.phone = req.phone
         if req.email is not None: obj.email = req.email

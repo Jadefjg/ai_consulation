@@ -11,14 +11,15 @@ from models.appointment import Appointment, HealthRecord
 from models.doctor_consult import DoctorConsult, DoctorReply
 from schemas.common import DoctorCreate, DoctorUpdate
 from core.security import hash_password
+from utils.account import username_exists
 from utils.helpers import format_datetime
 
 router = APIRouter()
 
 
-def _doctor_to_dict(doctor: Doctor, dept_map: dict) -> dict:
+def _doctor_to_dict(doctor: Doctor, dept_map: dict, include_phone: bool = True) -> dict:
     """将医生对象转为字典"""
-    return {
+    data = {
         "id": doctor.id,
         "username": doctor.username,
         "real_name": doctor.real_name,
@@ -28,10 +29,12 @@ def _doctor_to_dict(doctor: Doctor, dept_map: dict) -> dict:
         "specialty": doctor.specialty,
         "introduction": doctor.introduction,
         "avatar": doctor.avatar,
-        "phone": doctor.phone,
         "status": doctor.status,
         "create_time": format_datetime(doctor.create_time),
     }
+    if include_phone:
+        data["phone"] = doctor.phone
+    return data
 
 
 @router.get("/list")
@@ -50,8 +53,12 @@ def list_doctors(
         q = q.filter(Doctor.department_id == department_id)
     total = q.count()
     items = q.order_by(Doctor.id).offset((page - 1) * page_size).limit(page_size).all()
-    dept_map = {d.id: d.name for d in db.query(Department).all()}
-    data = [_doctor_to_dict(d, dept_map) for d in items]
+    dept_ids = {d.department_id for d in items if d.department_id}
+    dept_map = {
+        dept.id: dept.name
+        for dept in db.query(Department).filter(Department.id.in_(dept_ids)).all()
+    } if dept_ids else {}
+    data = [_doctor_to_dict(d, dept_map, include_phone=False) for d in items]
     return page_result(data, total, page, page_size)
 
 
@@ -88,8 +95,7 @@ def create_doctor(
     """管理员创建医生"""
     if req.password != req.confirm_password:
         raise HTTPException(status_code=400, detail="两次密码输入不一致")
-    existing = db.query(Doctor).filter(Doctor.username == req.username).first()
-    if existing:
+    if username_exists(db, req.username):
         raise HTTPException(status_code=400, detail="用户名已存在")
     doctor = Doctor(
         username=req.username,
@@ -189,6 +195,8 @@ def toggle_doctor_status(
     doctor = db.query(Doctor).filter(Doctor.id == doctor_id).first()
     if not doctor:
         raise HTTPException(status_code=404, detail="医生不存在")
+    if status not in (0, 1):
+        raise HTTPException(status_code=400, detail="状态值无效")
     doctor.status = status
     db.commit()
     return success(None, "状态更新成功")

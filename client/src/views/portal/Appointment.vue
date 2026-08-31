@@ -13,6 +13,13 @@ const showDialog = ref(false)
 /** 预约时段选项 */
 const timeSlotOptions = ['上午', '下午', '晚上']
 
+/** 禁止选择今天之前的日期 */
+function disablePastDate(date) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return date < today
+}
+
 /** 预约状态映射 */
 const statusMap = {
   0: '待确认',
@@ -171,7 +178,13 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="预约日期">
-          <el-date-picker v-model="form.visit_date" type="date" value-format="YYYY-MM-DD" style="width:100%" />
+          <el-date-picker
+            v-model="form.visit_date"
+            type="date"
+            value-format="YYYY-MM-DD"
+            :disabled-date="disablePastDate"
+            style="width:100%"
+          />
         </el-form-item>
         <el-form-item label="时段">
           <el-select v-model="form.time_slot" placeholder="选择时段" style="width:100%">

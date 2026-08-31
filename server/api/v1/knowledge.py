@@ -1,11 +1,11 @@
 """知识库管理接口"""
 import os
-from fastapi import APIRouter, Depends, UploadFile, File, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, UploadFile, File, Query, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
 from core.config import settings
 from core.deps import require_roles, CurrentUser
-from core.response import success, page_result, error
+from core.response import success, page_result
 from db.session import get_db
 from models.knowledge import KnowledgeFile, KnowledgeChunk
 from services.rag_service import get_rag_service
@@ -23,7 +23,11 @@ def _vectorize_task(file_id: int):
     try:
         file_record = db.query(KnowledgeFile).filter(KnowledgeFile.id == file_id).first()
         if file_record:
-            get_rag_service().process_file(db, file_record)
+            try:
+                chunk_count = get_rag_service().process_file(db, file_record)
+                print(f"[knowledge] 向量化成功 file_id={file_id}, chunks={chunk_count}", flush=True)
+            except Exception as exc:
+                print(f"[knowledge] 向量化失败 file_id={file_id}, file={file_record.file_name}: {exc}", flush=True)
     finally:
         db.close()
 
@@ -65,12 +69,12 @@ async def upload_file(
     """上传知识库文件并自动向量化"""
     file_type = get_file_type(file.filename)
     if file_type == "unknown":
-        return error("不支持的文件类型，仅支持 txt/doc/pdf/markdown", 400)
+        raise HTTPException(status_code=400, detail="不支持的文件类型，仅支持 txt/doc/pdf/markdown")
     content = await file.read()
     if not content:
-        return error("文件内容为空", 400)
+        raise HTTPException(status_code=400, detail="文件内容为空")
     if len(content) > _KNOWLEDGE_MAX_BYTES:
-        return error("文件大小不能超过20MB", 400)
+        raise HTTPException(status_code=400, detail="文件大小不能超过20MB")
     rel_path = save_upload_file(content, file.filename, "knowledge")
     abs_path = os.path.join(settings.upload_dir, "knowledge", os.path.basename(rel_path))
     record = KnowledgeFile(
@@ -93,7 +97,7 @@ def revectorize(file_id: int, background_tasks: BackgroundTasks, db: Session = D
     """重新向量化"""
     record = db.query(KnowledgeFile).filter(KnowledgeFile.id == file_id).first()
     if not record:
-        return error("文件不存在", 404)
+        raise HTTPException(status_code=404, detail="文件不存在")
     background_tasks.add_task(_vectorize_task, file_id)
     return success(None, "已开始重新向量化")
 
@@ -103,7 +107,7 @@ def delete_file(file_id: int, db: Session = Depends(get_db), _: CurrentUser = De
     """删除知识库文件"""
     record = db.query(KnowledgeFile).filter(KnowledgeFile.id == file_id).first()
     if not record:
-        return error("文件不存在", 404)
+        raise HTTPException(status_code=404, detail="文件不存在")
     get_rag_service().vector_store.delete_by_file_id(file_id)
     db.query(KnowledgeChunk).filter(KnowledgeChunk.file_id == file_id).delete()
     if os.path.exists(record.file_path):

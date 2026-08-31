@@ -1,10 +1,10 @@
 """科室管理接口"""
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
-from core.response import success, page_result, error
+from core.response import success, page_result
 from db.session import get_db
 from models.department import Department
 from models.doctor import Doctor
@@ -79,10 +79,10 @@ def create_department(req: DepartmentCreate, db: Session = Depends(get_db), _: C
     """创建科室"""
     name = req.name.strip()
     if not name:
-        return error("科室名称不能为空")
+        raise HTTPException(status_code=400, detail="科室名称不能为空")
     exists = db.query(Department).filter(Department.name == name).first()
     if exists:
-        return error("科室名称已存在")
+        raise HTTPException(status_code=400, detail="科室名称已存在")
     dept = Department(name=name, description=req.description, sort_order=req.sort_order)
     db.add(dept)
     db.commit()
@@ -95,13 +95,13 @@ def update_department(dept_id: int, req: DepartmentCreate, db: Session = Depends
     """更新科室"""
     dept = db.query(Department).filter(Department.id == dept_id).first()
     if not dept:
-        return error("科室不存在")
+        raise HTTPException(status_code=404, detail="科室不存在")
     name = req.name.strip()
     if not name:
-        return error("科室名称不能为空")
+        raise HTTPException(status_code=400, detail="科室名称不能为空")
     exists = db.query(Department).filter(Department.name == name, Department.id != dept_id).first()
     if exists:
-        return error("科室名称已存在")
+        raise HTTPException(status_code=400, detail="科室名称已存在")
     dept.name = name
     dept.description = req.description
     dept.sort_order = req.sort_order
@@ -114,10 +114,10 @@ def delete_department(dept_id: int, db: Session = Depends(get_db), _: CurrentUse
     """删除科室"""
     dept = db.query(Department).filter(Department.id == dept_id).first()
     if not dept:
-        return error("科室不存在")
+        raise HTTPException(status_code=404, detail="科室不存在")
     doctor_count = db.query(Doctor).filter(Doctor.department_id == dept_id).count()
     if doctor_count > 0:
-        return error(f"该科室下还有 {doctor_count} 位医生，无法删除")
+        raise HTTPException(status_code=400, detail=f"该科室下还有 {doctor_count} 位医生，无法删除")
     db.delete(dept)
     db.commit()
     return success(None, "删除成功")

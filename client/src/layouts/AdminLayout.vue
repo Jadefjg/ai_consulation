@@ -13,9 +13,14 @@ const router = useRouter()
 const userStore = useUserStore()
 const isCollapse = ref(false)
 
+/** 是否管理后台角色 */
+function isAdminPanelRole(role) {
+  return role === 'admin' || role === 'root'
+}
+
 /** 根据角色生成侧边栏菜单 */
 const menuItems = computed(() => {
-  if (userStore.role === 'admin') {
+  if (isAdminPanelRole(userStore.role)) {
     return [
       { path: '/admin/dashboard', label: '数据概览', icon: DataAnalysis },
       { path: '/admin/users', label: '用户管理', icon: User },
@@ -45,7 +50,7 @@ const breadcrumbs = computed(() => {
 
 /** 个人中心路径 */
 const profilePath = computed(() =>
-  userStore.role === 'admin' ? '/admin/profile' : '/doctor/profile',
+  isAdminPanelRole(userStore.role) ? '/admin/profile' : '/doctor/profile',
 )
 
 /** 头像地址 */
@@ -58,7 +63,7 @@ const displayName = computed(() =>
 
 /** 侧边栏标题 */
 const sidebarTitle = computed(() =>
-  userStore.role === 'admin' ? '管理后台' : '医生工作台',
+  isAdminPanelRole(userStore.role) ? '管理后台' : '医生工作台',
 )
 
 function goProfile() {

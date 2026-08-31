@@ -40,5 +40,5 @@ def save_upload_file(file_content: bytes, original_name: str, sub_dir: str = "")
 def get_file_type(filename: str) -> str:
     """根据扩展名获取文件类型"""
     ext = os.path.splitext(filename)[1].lower()
-    mapping = {".txt": "txt", ".md": "markdown", ".pdf": "pdf", ".doc": "doc", ".docx": "doc"}
+    mapping = {".txt": "txt", ".md": "markdown", ".pdf": "pdf", ".doc": "doc", ".docx": "docx"}
     return mapping.get(ext, "unknown")

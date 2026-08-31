@@ -5,6 +5,8 @@ import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { formatDateTime } from '@/utils/format'
 
+import { sanitizeHtml } from '@/utils/sanitize'
+
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
@@ -54,7 +56,7 @@ watch(() => route.params.id, loadDetail)
         <span>{{ article.author || '管理员' }}</span>
         <span>{{ formatDateTime(article.create_time || article.created_at) }}</span>
       </div>
-      <div class="detail-content" v-html="article.content || '暂无内容'"></div>
+      <div class="detail-content" v-html="sanitizeHtml(article.content || '暂无内容')"></div>
     </div>
   </div>
 </template>

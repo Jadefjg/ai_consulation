@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI):
     _ensure_runtime_dirs()
     Base.metadata.create_all(bind=engine)
     print(f"[启动] {settings.project_name} 服务已就绪")
+    if settings.jwt_secret_key == "ai-medical-consult-secret-key-2026":
+        print("[警告] JWT_SECRET_KEY 使用默认值，生产环境请通过环境变量设置强密钥")
     if not settings.openai_api_key:
         print("[警告] OPENAI_API_KEY 未设置，LLM功能不可用")
     yield
@@ -75,9 +77,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 静态文件挂载（先建目录，避免容器首次启动时因目录不存在而跳过）
+# 静态文件仅挂载头像目录，知识库文件不对外暴露
 _ensure_runtime_dirs()
-app.mount("/uploads33", StaticFiles(directory=settings.upload_dir), name="uploads")
+_avatar_dir = os.path.join(settings.upload_dir, "avatar")
+app.mount("/uploads33/avatar", StaticFiles(directory=_avatar_dir), name="avatar_uploads")
 
 # 注册API路由
 app.include_router(api_router)

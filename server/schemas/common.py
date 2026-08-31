@@ -13,12 +13,16 @@ class LoginRequest(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    """患者注册请求"""
+    """三角色注册请求"""
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6)
     confirm_password: str = Field(..., min_length=6)
+    role: str = Field(default="user", description="角色: user/doctor/admin")
     real_name: Optional[str] = None
     phone: Optional[str] = None
+    department_id: Optional[int] = None
+    title: Optional[str] = None
+    specialty: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -181,7 +185,7 @@ class KnowledgeFileOut(BaseModel):
 class ChatRequest(BaseModel):
     """AI问诊请求"""
     session_id: Optional[int] = None
-    message: str = Field(..., min_length=1)
+    message: str = Field(..., min_length=1, max_length=4000)
 
 
 class SessionOut(BaseModel):

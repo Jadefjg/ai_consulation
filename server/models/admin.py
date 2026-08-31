@@ -16,5 +16,6 @@ class Admin(Base):
     phone = Column(String(20), comment="手机号")
     email = Column(String(100), comment="邮箱")
     status = Column(Integer, default=1, comment="状态")
+    admin_role = Column(String(20), default="admin", comment="管理员类型: admin/root")
     create_time = Column(DateTime, server_default=func.now(), comment="创建时间")
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间")
