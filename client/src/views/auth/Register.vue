@@ -3,16 +3,17 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
-import { User, Lock, Phone, FirstAidKit } from '@element-plus/icons-vue'
+import { User, Lock, Phone, FirstAidKit, Setting } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const loading = ref(false)
 const departments = ref([])
 
-/** 角色选项（管理员仅后台创建） */
+/** 角色选项 */
 const roleOptions = [
   { label: '用户', value: 'user', icon: User },
   { label: '医生', value: 'doctor', icon: FirstAidKit },
+  { label: '管理员', value: 'admin', icon: Setting },
 ]
 
 /** 注册表单 */
@@ -96,7 +97,7 @@ onMounted(loadDepartments)
         <el-form-item>
           <el-input
             v-model="form.real_name"
-            :placeholder="form.role === 'doctor' ? '医生姓名' : '用户昵称'"
+            :placeholder="form.role === 'admin' ? '管理员昵称' : form.role === 'doctor' ? '医生姓名' : '用户昵称'"
             :prefix-icon="User"
           />
         </el-form-item>
@@ -213,7 +214,7 @@ onMounted(loadDepartments)
 
 .role-cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
 

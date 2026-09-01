@@ -16,7 +16,7 @@ from models.user import User
 from schemas.common import LoginRequest, RegisterRequest, TokenResponse
 from utils.account import username_exists
 
-_PUBLIC_REGISTER_ROLES = {"user", "doctor"}
+_PUBLIC_REGISTER_ROLES = {"user", "doctor", "admin"}
 
 
 class AuthService:
@@ -114,11 +114,11 @@ class AuthService:
     @staticmethod
     def register(db: Session, req: RegisterRequest) -> TokenResponse:
         """
-        公开注册（仅用户/医生；管理员由后台创建）
+        三角色公开注册（用户/医生/管理员）
         """
         role = req.role or "user"
         if role not in _PUBLIC_REGISTER_ROLES:
-            raise HTTPException(status_code=400, detail="不支持该角色自助注册，管理员请联系系统管理员创建")
+            raise HTTPException(status_code=400, detail="无效的角色类型")
         if req.password != req.confirm_password:
             raise HTTPException(status_code=400, detail="两次密码输入不一致")
         if username_exists(db, req.username):
@@ -127,7 +127,17 @@ class AuthService:
         hashed = hash_password(req.password)
         display_name = (req.real_name or req.username).strip()
 
-        if role == "doctor":
+        if role == "admin":
+            account = Admin(
+                username=req.username,
+                password=hashed,
+                nickname=display_name,
+                phone=req.phone,
+                admin_role=ADMIN_ROLE,
+                status=1,
+            )
+            nickname = display_name
+        elif role == "doctor":
             if req.department_id is None:
                 raise HTTPException(status_code=400, detail="请选择所属科室")
             AuthService._validate_department(db, req.department_id)
@@ -155,10 +165,11 @@ class AuthService:
         db.add(account)
         db.commit()
         db.refresh(account)
-        token = create_access_token({"sub": account.username, "user_id": account.id, "role": role})
+        token_role = role
+        token = create_access_token({"sub": account.username, "user_id": account.id, "role": token_role})
         return TokenResponse(
             access_token=token,
-            role=role,
+            role=token_role,
             user_id=account.id,
             username=account.username,
             nickname=nickname,

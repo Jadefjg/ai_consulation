@@ -170,10 +170,6 @@ async function handleLogin() {
             <router-link to="/register" class="link">免费注册 →</router-link>
           </div>
         </div>
-
-        <div class="form-trust">
-          <span class="trust-item"><a href="https://www.java1234.com/a/bysj/python/" target='_blank'><font color=red>更多Python222原创作品</font></a></span>
-        </div>
       </div>
     </div>
   </div>
