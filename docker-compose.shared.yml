@@ -1,0 +1,52 @@
+# 接入公共 MySQL；Neo4j 极限内存；图谱不可用时后端仍可启动
+# 用法：
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     -f docker-compose.shared.yml up -d --no-build
+
+services:
+  mysql:
+    profiles: ["isolated-middleware"]
+
+  neo4j:
+    profiles: ["graph"]
+    environment:
+      NEO4J_server_memory_heap_initial__size: 64m
+      NEO4J_server_memory_heap_max__size: 128m
+      NEO4J_server_memory_pagecache_size: 16m
+      NEO4J_server_jvm_additional: -XX:MaxMetaspaceSize=64m -XX:ReservedCodeCacheSize=24m -Xss256k
+    mem_limit: 260m
+    memswap_limit: 720m
+    ports: !override
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+
+  backend:
+    mem_limit: 360m
+    memswap_limit: 720m
+    depends_on: !reset []
+    environment:
+      MYSQL_HOST: shared-mysql
+      MYSQL_PORT: "3306"
+      MYSQL_USER: medical
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: db_ai_medical
+      NEO4J_REQUIRED: "false"
+      ANONYMIZED_TELEMETRY: "False"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes: !override
+      - uploads_data:/data/uploads
+      - chroma_data:/data/chroma_db
+      - ./server/scripts/docker_entrypoint.py:/app/scripts/docker_entrypoint.py:ro
+    networks:
+      - default
+      - shared-infra
+
+  frontend:
+    mem_limit: 48m
+    memswap_limit: 96m
+
+networks:
+  shared-infra:
+    external: true
+    name: shared-infra

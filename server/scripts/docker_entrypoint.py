@@ -95,7 +95,13 @@ def ensure_schema() -> None:
 def main() -> None:
     """容器启动主流程"""
     wait_for_mysql()
-    wait_for_neo4j()
+    if _truthy("NEO4J_REQUIRED", "true"):
+        wait_for_neo4j()
+    else:
+        try:
+            wait_for_neo4j(timeout=60)
+        except SystemExit as exc:
+            print(f"[entrypoint] Neo4j 暂不可用，图谱接口将降级: {exc}")
     ensure_schema()
 
     from scripts.seed_demo import seed_demo

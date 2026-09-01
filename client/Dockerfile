@@ -3,7 +3,11 @@ FROM node:22-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+ARG NPM_CONFIG_REGISTRY=https://registry.npmjs.org
+ARG NODE_OPTIONS=--max-old-space-size=384
+ENV NPM_CONFIG_REGISTRY=${NPM_CONFIG_REGISTRY} \
+    NODE_OPTIONS=${NODE_OPTIONS}
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 RUN npm run build
