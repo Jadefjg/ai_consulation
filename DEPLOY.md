@@ -163,6 +163,37 @@ docker compose logs -f backend
 | http://localhost:8000/docs | FastAPI 接口文档 |
 | http://localhost:7474 | Neo4j Browser（`neo4j` / 见 `.env` 密码） |
 
+### 3.6 阿里云部署（同一 `docker-compose.yml`）
+
+项目已合并为 **单一** `docker-compose.yml`，通过不同 `--env-file` 切换场景，无需再叠加多个 compose 文件。
+
+| 场景 | 命令 | 配置文件 |
+|------|------|----------|
+| 本地开发 | `docker compose up -d --build` | `.env`（默认） |
+| 阿里云单机（自带 MySQL + Neo4j） | `docker compose --env-file .env.prod up -d --build` | 复制 `.env.prod.example` → `.env.prod` |
+| 阿里云共享 MySQL | `docker compose --env-file .env.shared up -d --build` | 复制 `.env.shared.example` → `.env.shared` |
+
+**阿里云单机要点：**
+
+- 公网入口默认 `WEB_PORT=9000`（安全组需放行 TCP 9000）
+- MySQL / Neo4j / 后端仅绑定 `127.0.0.1`，不对公网暴露
+- 使用国内 pip / npm 镜像加速构建
+- 内存与 swap 限制适配 2C2G 低配 ECS
+
+**共享 MySQL 要点：**
+
+- `COMPOSE_PROFILES` 不含 `with-mysql`，不启动内置 MySQL
+- `MYSQL_HOST=shared-mysql`，`SHARED_INFRA_EXTERNAL=true` 接入 `shared-infra` 网络
+- `NEO4J_REQUIRED=false`，图谱不可用时后端仍可启动
+- 可选 `with-graph` profile 启动低配 Neo4j
+
+```bash
+# 阿里云单机示例（在 /opt/ai_consulation）
+cp .env.prod.example .env.prod
+# 编辑密码、JWT、API Key 后：
+docker compose --env-file .env.prod up -d --build
+```
+
 ---
 
 ## 4. 账号与权限
@@ -276,10 +307,13 @@ EMBEDDING_DIMENSIONS=2048
 | `INIT_GRAPH` | `true` | 首次启动导入 Neo4j 图谱 |
 | `INIT_KNOWLEDGE` | `false` | 为 true 时向量化 `server/docs_seed/` |
 | `WEB_PORT` | `80` | 浏览器访问端口 |
-| `BACKEND_PORT` | `8000` | 宿主机暴露后端 |
-| `MYSQL_PORT` | `3308` | 宿主机映射 MySQL |
+| `BACKEND_PORT` | `8000` | 宿主机暴露后端（也可用 `BACKEND_PUBLISH=127.0.0.1:8001:8000`） |
+| `MYSQL_PORT` | `3308` | 宿主机映射 MySQL（也可用 `MYSQL_PUBLISH` 完整映射） |
 | `NEO4J_HTTP_PORT` | `7474` | Neo4j Browser |
 | `NEO4J_BOLT_PORT` | `7687` | Neo4j Bolt |
+| `COMPOSE_PROFILES` | `with-mysql,with-graph` | 启用的中间件 profile |
+| `MYSQL_HOST` | `mysql` | 共享 MySQL 模式改为 `shared-mysql` |
+| `SHARED_INFRA_EXTERNAL` | `false` | 共享 MySQL 模式改为 `true` |
 
 **密码卷注意：** MySQL / Neo4j 密码仅在数据卷 **首次创建** 时生效。修改 `.env` 密码后若连不上，需 `docker compose down -v` 重建（清空数据）。
 
@@ -554,8 +588,10 @@ Vite 默认 `5173`，已将 `/api` 代理到 `127.0.0.1:8000`。
 
 | 路径 | 说明 |
 |------|------|
-| `docker-compose.yml` | 四服务编排、卷、健康检查 |
-| `.env.example` | 环境变量模板 |
+| `docker-compose.yml` | 统一编排（本地 / 阿里云单机 / 共享 MySQL） |
+| `.env.example` | 本地开发环境变量模板 |
+| `.env.prod.example` | 阿里云单机生产模板 |
+| `.env.shared.example` | 阿里云共享 MySQL 模板 |
 | `client/Dockerfile` | 前端多阶段构建 |
 | `client/nginx.conf` | 反向代理、SSE、上传代理 |
 | `server/Dockerfile` | 后端镜像（Python 3.11） |
