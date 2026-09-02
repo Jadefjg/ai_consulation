@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { formatDateTime, parseListData } from '@/utils/format'
 import { useUserStore } from '@/stores/user'
+import AppPagination from '@/components/AppPagination.vue'
 
 const userStore = useUserStore()
 const isRoot = computed(() => userStore.role === 'root')
@@ -55,9 +56,26 @@ function apiPrefix(role) {
   return '/users'
 }
 
+/** 表格行唯一键 */
+function rowKey(row) {
+  return row.account_key || `${row.role}-${row.id}`
+}
+
+/** 展示用账号编号（跨表唯一） */
+function displayId(row) {
+  if (row.display_id) return row.display_id
+  const prefix = { user: 'U', doctor: 'D', admin: 'A', root: 'R' }[row.role] || 'X'
+  return `${prefix}-${row.id}`
+}
+
 /** 角色显示名 */
 function roleLabel(role) {
   return { user: '用户', doctor: '医生', admin: '管理员' }[role] || '账号'
+}
+
+/** 当前页序号 */
+function rowIndex(index) {
+  return (page.value - 1) * pageSize.value + index + 1
 }
 
 /** 加载科室（医生表单用） */
@@ -99,11 +117,6 @@ function handleSearch() {
 function handleReset() {
   keyword.value = ''
   page.value = 1
-  loadList()
-}
-
-function handlePageChange(p) {
-  page.value = p
   loadList()
 }
 
@@ -280,7 +293,7 @@ async function submitForm() {
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
-      `确定删除${roleLabel(row.role)}「${row.username}」吗？`,
+      `确定删除${roleLabel(row.role)}「${row.username}」（${displayId(row)}）吗？`,
       '提示',
       { type: 'warning' },
     )
@@ -333,8 +346,21 @@ onMounted(() => {
         <el-button @click="handleReset">重置</el-button>
       </div>
 
-      <el-table :data="list" v-loading="loading" class="adaptive-table" stripe>
-        <el-table-column prop="id" label="ID" min-width="60" />
+      <el-table
+        :data="list"
+        v-loading="loading"
+        class="adaptive-table"
+        stripe
+        :row-key="rowKey"
+      >
+        <el-table-column label="序号" width="64" align="center">
+          <template #default="{ $index }">{{ rowIndex($index) }}</template>
+        </el-table-column>
+        <el-table-column label="账号编号" min-width="100">
+          <template #default="{ row }">
+            <span class="account-id">{{ displayId(row) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="username" label="用户名" min-width="120" />
         <el-table-column prop="real_name" label="昵称" min-width="100" />
         <el-table-column prop="gender" label="性别" min-width="70">
@@ -383,16 +409,12 @@ onMounted(() => {
 
       <el-empty v-if="!loading && !list.length" description="暂无账号数据" />
 
-      <div v-if="total > 0" class="pagination-wrap">
-        <el-pagination
-          v-model:current-page="page"
-          :page-size="pageSize"
-          :total="total"
-          layout="total, prev, pager, next"
-          background
-          @current-change="handlePageChange"
-        />
-      </div>
+      <AppPagination
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="loadList"
+      />
     </div>
 
     <el-dialog
@@ -512,16 +534,17 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 16px;
 }
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
-}
 .role-hint {
   font-size: 12px;
   color: var(--text-secondary);
 }
 .text-muted {
   color: var(--text-secondary);
+}
+.account-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  color: var(--color-brand-dark);
+  font-weight: 600;
 }
 </style>

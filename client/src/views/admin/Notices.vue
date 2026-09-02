@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { formatDateTime, parseListData } from '@/utils/format'
+import AppPagination from '@/components/AppPagination.vue'
 
 const list = ref([])
 const loading = ref(false)
@@ -59,11 +60,6 @@ function handleReset() {
 }
 
 /** 分页切换 */
-function handlePageChange(p) {
-  page.value = p
-  loadList()
-}
-
 /** 打开新增对话框 */
 function openCreate() {
   isEdit.value = false
@@ -177,16 +173,12 @@ onMounted(loadList)
       <el-empty v-if="!loading && !list.length" description="暂无公告数据" />
 
       <!-- 分页 -->
-      <div v-if="total > 0" class="pagination-wrap">
-        <el-pagination
-          v-model:current-page="page"
-          :page-size="pageSize"
-          :total="total"
-          layout="total, prev, pager, next"
-          background
-          @current-change="handlePageChange"
-        />
-      </div>
+      <AppPagination
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="loadList"
+      />
     </div>
 
     <!-- 新增/编辑对话框 -->
@@ -235,10 +227,5 @@ onMounted(loadList)
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
-}
-.pagination-wrap {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 </style>
