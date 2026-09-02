@@ -20,17 +20,6 @@ router = APIRouter()
 
 _ROLE_LABELS = {"user": "用户", "doctor": "医生", "admin": "管理员", "root": "超级管理员"}
 _ROLE_SORT_ORDER = {"root": 0, "admin": 1, "doctor": 2, "user": 3}
-_ROLE_ID_PREFIX = {"user": "U", "doctor": "D", "admin": "A", "root": "R"}
-
-
-def _with_account_meta(data: dict) -> dict:
-    """附加全局唯一账号标识（跨 t_user / t_doctor / t_admin 表）"""
-    role = data.get("role", "user")
-    pk = data.get("id")
-    prefix = _ROLE_ID_PREFIX.get(role, "X")
-    data["account_key"] = f"{role}:{pk}"
-    data["display_id"] = f"{prefix}-{pk}"
-    return data
 
 
 def _user_to_dict(user: User) -> dict:
@@ -130,10 +119,11 @@ def list_users(
 
     accounts.sort(key=lambda x: x.get("create_time") or "", reverse=True)
     accounts.sort(key=lambda x: _ROLE_SORT_ORDER.get(x.get("role"), 9))
-    accounts = [_with_account_meta(item) for item in accounts]
     total = len(accounts)
     start = (page - 1) * page_size
-    data = accounts[start:start + page_size]
+    data = accounts[start : start + page_size]
+    for index, item in enumerate(data):
+        item["seq"] = start + index + 1
     return page_result(data, total, page, page_size)
 
 
