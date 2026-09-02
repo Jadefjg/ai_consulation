@@ -41,3 +41,11 @@ function onSizeChange(value) {
     />
   </div>
 </template>
+
+<style scoped>
+.app-pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+</style>
