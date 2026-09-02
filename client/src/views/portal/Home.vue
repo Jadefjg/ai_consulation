@@ -34,10 +34,10 @@ function viewNotice(id) {
 
 /** 快捷入口 */
 const shortcuts = [
-  { path: '/portal/chat', label: 'AI智能问诊', icon: '🤖', color: '#667eea' },
-  { path: '/portal/symptom', label: '症状推理', icon: '🔬', color: '#11998e' },
-  { path: '/portal/consult', label: '在线咨询', icon: '💬', color: '#f5576c' },
-  { path: '/portal/appointment', label: '预约挂号', icon: '📅', color: '#764ba2' },
+  { path: '/portal/chat', label: 'AI智能问诊', icon: '🤖', color: '#b56bc4' },
+  { path: '/portal/symptom', label: '症状推理', icon: '🔬', color: '#cc5084' },
+  { path: '/portal/consult', label: '在线咨询', icon: '💬', color: '#e07098' },
+  { path: '/portal/appointment', label: '预约挂号', icon: '📅', color: '#a83d6a' },
 ]
 </script>
 
@@ -110,7 +110,7 @@ const shortcuts = [
 
 <style scoped>
 .welcome-banner {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary-gradient);
   border-radius: var(--radius-lg);
   padding: 40px;
   margin-bottom: 24px;
@@ -185,7 +185,7 @@ const shortcuts = [
 }
 
 .notice-item:hover {
-  background: #f9f9ff;
+  background: #fdf4ff;
 }
 
 .notice-item:last-child {

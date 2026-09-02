@@ -296,7 +296,7 @@ onMounted(loadProfile)
 
 .avatar-click {
   cursor: pointer;
-  border: 3px solid #667eea;
+  border: 3px solid var(--color-brand);
 }
 
 .avatar-tip {

@@ -48,9 +48,9 @@ function buildLineOption(title, data) {
       type: 'line',
       smooth: true,
       data: items.map((i) => i.count || i.value || 0),
-      areaStyle: { color: 'rgba(102,126,234,0.15)' },
-      lineStyle: { color: '#667eea', width: 3 },
-      itemStyle: { color: '#667eea' },
+      areaStyle: { color: 'rgba(204,80,132,0.15)' },
+      lineStyle: { color: '#cc5084', width: 3 },
+      itemStyle: { color: '#cc5084' },
     }],
   }
 }
@@ -84,7 +84,7 @@ function buildBarOption(title, data) {
       itemStyle: {
         borderRadius: [6, 6, 0, 0],
         color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
-          { offset: 0, color: '#667eea' }, { offset: 1, color: '#764ba2' },
+          { offset: 0, color: '#ddb8e8' }, { offset: 1, color: '#cc5084' },
         ]},
       },
     }],

@@ -1,10 +1,15 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { formatDateTime, parseListData } from '@/utils/format'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+const isRoot = computed(() => userStore.role === 'root')
 
 const list = ref([])
+const departments = ref([])
 const loading = ref(false)
 const keyword = ref('')
 const page = ref(1)
@@ -17,6 +22,7 @@ const submitting = ref(false)
 /** 表单默认值 */
 const defaultForm = () => ({
   id: null,
+  role: 'user',
   username: '',
   password: '',
   confirm_password: '',
@@ -24,11 +30,45 @@ const defaultForm = () => ({
   gender: 1,
   age: null,
   phone: '',
+  email: '',
   allergy_history: '',
+  department_id: null,
+  title: '',
+  specialty: '',
+  introduction: '',
   status: 1,
 })
 
 const form = ref(defaultForm())
+
+/** 是否可管理该行账号 */
+function canManage(row) {
+  if (row.role === 'root') return false
+  if (isRoot.value) return ['user', 'doctor', 'admin'].includes(row.role)
+  return row.role === 'user'
+}
+
+/** 接口前缀 */
+function apiPrefix(role) {
+  if (role === 'doctor') return '/doctors'
+  if (role === 'admin') return '/admins'
+  return '/users'
+}
+
+/** 角色显示名 */
+function roleLabel(role) {
+  return { user: '用户', doctor: '医生', admin: '管理员' }[role] || '账号'
+}
+
+/** 加载科室（医生表单用） */
+async function loadDepartments() {
+  try {
+    const res = await request.get('/departments/list')
+    departments.value = res.data || []
+  } catch {
+    departments.value = []
+  }
+}
 
 /** 加载用户列表 */
 async function loadList() {
@@ -51,37 +91,33 @@ async function loadList() {
   }
 }
 
-/** 搜索用户 */
 function handleSearch() {
   page.value = 1
   loadList()
 }
 
-/** 重置搜索 */
 function handleReset() {
   keyword.value = ''
   page.value = 1
   loadList()
 }
 
-/** 分页切换 */
 function handlePageChange(p) {
   page.value = p
   loadList()
 }
 
-/** 打开新增对话框 */
 function openCreate() {
   isEdit.value = false
   form.value = defaultForm()
   dialogVisible.value = true
 }
 
-/** 打开编辑对话框 */
 function openEdit(row) {
   isEdit.value = true
   form.value = {
     id: row.id,
+    role: row.role,
     username: row.username,
     password: '',
     confirm_password: '',
@@ -89,10 +125,42 @@ function openEdit(row) {
     gender: row.gender ?? 1,
     age: row.age ?? null,
     phone: row.phone || '',
+    email: row.email || '',
     allergy_history: row.allergy_history || '',
+    department_id: row.department_id ?? null,
+    title: row.title || '',
+    specialty: row.specialty || '',
+    introduction: row.introduction || '',
     status: row.status ?? 1,
   }
   dialogVisible.value = true
+}
+
+function validatePassword() {
+  if (!isEdit.value) {
+    if (!form.value.password) {
+      ElMessage.warning('请输入密码')
+      return false
+    }
+    if (form.value.password.length < 6) {
+      ElMessage.warning('密码至少6个字符')
+      return false
+    }
+    if (form.value.password !== form.value.confirm_password) {
+      ElMessage.warning('两次密码输入不一致')
+      return false
+    }
+  } else if (form.value.password) {
+    if (form.value.password.length < 6) {
+      ElMessage.warning('密码至少6个字符')
+      return false
+    }
+    if (form.value.password !== form.value.confirm_password) {
+      ElMessage.warning('两次密码输入不一致')
+      return false
+    }
+  }
+  return true
 }
 
 /** 提交表单 */
@@ -106,58 +174,99 @@ async function submitForm() {
       ElMessage.warning('用户名至少3个字符')
       return
     }
-    if (!form.value.password) {
-      ElMessage.warning('请输入密码')
-      return
-    }
-    if (form.value.password.length < 6) {
-      ElMessage.warning('密码至少6个字符')
-      return
-    }
-    if (form.value.password !== form.value.confirm_password) {
-      ElMessage.warning('两次密码输入不一致')
-      return
-    }
-  } else if (form.value.password) {
-    if (form.value.password.length < 6) {
-      ElMessage.warning('密码至少6个字符')
-      return
-    }
-    if (form.value.password !== form.value.confirm_password) {
-      ElMessage.warning('两次密码输入不一致')
+    if (form.value.role === 'doctor' && !form.value.real_name?.trim()) {
+      ElMessage.warning('请输入医生姓名')
       return
     }
   }
+  if (!validatePassword()) return
 
   submitting.value = true
   try {
+    const role = form.value.role
+    const prefix = apiPrefix(role)
+
     if (isEdit.value) {
-      const payload = {
-        real_name: form.value.real_name,
-        gender: form.value.gender,
-        age: form.value.age,
-        phone: form.value.phone,
-        allergy_history: form.value.allergy_history,
-        status: form.value.status,
+      if (role === 'user') {
+        const payload = {
+          real_name: form.value.real_name,
+          gender: form.value.gender,
+          age: form.value.age,
+          phone: form.value.phone,
+          allergy_history: form.value.allergy_history,
+          status: form.value.status,
+        }
+        if (form.value.password) {
+          payload.password = form.value.password
+          payload.confirm_password = form.value.confirm_password
+        }
+        await request.put(`${prefix}/${form.value.id}`, payload)
+      } else if (role === 'doctor') {
+        const payload = {
+          real_name: form.value.real_name,
+          department_id: form.value.department_id,
+          title: form.value.title,
+          specialty: form.value.specialty,
+          introduction: form.value.introduction,
+          phone: form.value.phone,
+          status: form.value.status,
+        }
+        if (form.value.password) {
+          payload.password = form.value.password
+          payload.confirm_password = form.value.confirm_password
+        }
+        await request.put(`${prefix}/${form.value.id}`, payload)
+      } else if (role === 'admin') {
+        const payload = {
+          nickname: form.value.real_name,
+          phone: form.value.phone,
+          email: form.value.email,
+          status: form.value.status,
+        }
+        if (form.value.password) {
+          payload.password = form.value.password
+          payload.confirm_password = form.value.confirm_password
+        }
+        await request.put(`${prefix}/${form.value.id}`, payload)
       }
-      if (form.value.password) {
-        payload.password = form.value.password
-        payload.confirm_password = form.value.confirm_password
-      }
-      await request.put(`/users/${form.value.id}`, payload)
       ElMessage.success('更新成功')
     } else {
-      await request.post('/users/create', {
-        username: form.value.username.trim(),
-        password: form.value.password,
-        confirm_password: form.value.confirm_password,
-        real_name: form.value.real_name,
-        gender: form.value.gender,
-        age: form.value.age,
-        phone: form.value.phone,
-        allergy_history: form.value.allergy_history,
-        status: form.value.status,
-      })
+      if (role === 'user') {
+        await request.post(`${prefix}/create`, {
+          username: form.value.username.trim(),
+          password: form.value.password,
+          confirm_password: form.value.confirm_password,
+          real_name: form.value.real_name,
+          gender: form.value.gender,
+          age: form.value.age,
+          phone: form.value.phone,
+          allergy_history: form.value.allergy_history,
+          status: form.value.status,
+        })
+      } else if (role === 'doctor') {
+        await request.post(`${prefix}/create`, {
+          username: form.value.username.trim(),
+          password: form.value.password,
+          confirm_password: form.value.confirm_password,
+          real_name: form.value.real_name,
+          department_id: form.value.department_id,
+          title: form.value.title,
+          specialty: form.value.specialty,
+          introduction: form.value.introduction,
+          phone: form.value.phone,
+          status: form.value.status,
+        })
+      } else if (role === 'admin') {
+        await request.post(`${prefix}/create`, {
+          username: form.value.username.trim(),
+          password: form.value.password,
+          confirm_password: form.value.confirm_password,
+          nickname: form.value.real_name,
+          phone: form.value.phone,
+          email: form.value.email,
+          status: form.value.status,
+        })
+      }
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false
@@ -167,15 +276,15 @@ async function submitForm() {
   }
 }
 
-/** 删除用户 */
+/** 删除账号 */
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
-      `确定删除用户「${row.username}」吗？删除后相关问诊、预约等数据也将一并清除。`,
+      `确定删除${roleLabel(row.role)}「${row.username}」吗？`,
       '提示',
       { type: 'warning' },
     )
-    await request.delete(`/users/${row.id}`)
+    await request.delete(`${apiPrefix(row.role)}/${row.id}`)
     ElMessage.success('删除成功')
     if (list.value.length === 1 && page.value > 1) {
       page.value -= 1
@@ -184,30 +293,34 @@ async function handleDelete(row) {
   } catch { /* */ }
 }
 
-/** 切换用户状态 */
+/** 切换账号状态 */
 async function toggleStatus(row) {
   const newStatus = row.status === 1 ? 0 : 1
   const action = newStatus === 1 ? '启用' : '禁用'
   try {
-    await ElMessageBox.confirm(`确定${action}用户「${row.username}」吗？`, '提示', { type: 'warning' })
-    await request.put(`/users/${row.id}/status`, null, { params: { status: newStatus } })
+    await ElMessageBox.confirm(`确定${action}${roleLabel(row.role)}「${row.username}」吗？`, '提示', { type: 'warning' })
+    await request.put(`${apiPrefix(row.role)}/${row.id}/status`, null, { params: { status: newStatus } })
     ElMessage.success(`${action}成功`)
     loadList()
   } catch { /* */ }
 }
 
-onMounted(loadList)
+onMounted(() => {
+  loadList()
+  if (isRoot.value) loadDepartments()
+})
 </script>
 
 <template>
   <div>
     <div class="page-header">
       <h2 class="page-title">用户管理</h2>
-      <el-button type="primary" @click="openCreate">新增用户</el-button>
+      <el-button type="primary" @click="openCreate">
+        {{ isRoot ? '新增账号' : '新增用户' }}
+      </el-button>
     </div>
 
     <div class="modern-card">
-      <!-- 搜索栏 -->
       <div class="search-bar">
         <el-input
           v-model="keyword"
@@ -223,14 +336,17 @@ onMounted(loadList)
       <el-table :data="list" v-loading="loading" class="adaptive-table" stripe>
         <el-table-column prop="id" label="ID" min-width="60" />
         <el-table-column prop="username" label="用户名" min-width="120" />
-        <el-table-column prop="real_name" label="用户昵称" min-width="100" />
+        <el-table-column prop="real_name" label="昵称" min-width="100" />
         <el-table-column prop="gender" label="性别" min-width="70">
           <template #default="{ row }">
-            {{ row.gender === 2 ? '女' : '男' }}
+            <span v-if="row.gender">{{ row.gender === 2 ? '女' : '男' }}</span>
+            <span v-else class="text-muted">—</span>
           </template>
         </el-table-column>
-        <el-table-column prop="age" label="年龄" min-width="70" />
-        <el-table-column prop="role_label" label="角色" min-width="90">
+        <el-table-column prop="age" label="年龄" min-width="70">
+          <template #default="{ row }">{{ row.age ?? '—' }}</template>
+        </el-table-column>
+        <el-table-column prop="role_label" label="角色" min-width="100">
           <template #default="{ row }">
             <el-tag
               :type="row.role === 'root' ? 'danger' : row.role === 'admin' ? 'danger' : row.role === 'doctor' ? 'warning' : 'primary'"
@@ -253,23 +369,20 @@ onMounted(loadList)
         </el-table-column>
         <el-table-column label="操作" min-width="200" fixed="right">
           <template #default="{ row }">
-            <template v-if="row.role === 'user'">
+            <template v-if="canManage(row)">
               <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
               <el-button link :type="row.status === 1 ? 'warning' : 'success'" @click="toggleStatus(row)">
                 {{ row.status === 1 ? '禁用' : '启用' }}
               </el-button>
               <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
             </template>
-            <span v-else class="role-hint">
-              {{ row.role === 'root' ? '超级管理员账号' : `请在「${row.role === 'doctor' ? '医生' : '管理员'}管理」中操作` }}
-            </span>
+            <span v-else class="role-hint">超级管理员账号</span>
           </template>
         </el-table-column>
       </el-table>
 
-      <el-empty v-if="!loading && !list.length" description="暂无用户数据" />
+      <el-empty v-if="!loading && !list.length" description="暂无账号数据" />
 
-      <!-- 分页 -->
       <div v-if="total > 0" class="pagination-wrap">
         <el-pagination
           v-model:current-page="page"
@@ -282,14 +395,20 @@ onMounted(loadList)
       </div>
     </div>
 
-    <!-- 新增/编辑对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑用户' : '新增用户'"
+      :title="isEdit ? `编辑${roleLabel(form.role)}` : (isRoot ? '新增账号' : '新增用户')"
       width="560px"
       destroy-on-close
     >
       <el-form label-width="90px">
+        <el-form-item v-if="isRoot && !isEdit" label="角色" required>
+          <el-radio-group v-model="form.role">
+            <el-radio value="user">用户</el-radio>
+            <el-radio value="doctor">医生</el-radio>
+            <el-radio value="admin">管理员</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="用户名" required>
           <el-input
             v-if="!isEdit"
@@ -315,28 +434,52 @@ onMounted(loadList)
             :placeholder="isEdit ? '不修改请留空' : '请再次输入密码'"
           />
         </el-form-item>
-        <el-form-item label="用户昵称">
-          <el-input v-model="form.real_name" placeholder="请输入用户昵称" />
+        <el-form-item :label="form.role === 'admin' ? '昵称' : form.role === 'doctor' ? '医生姓名' : '用户昵称'">
+          <el-input v-model="form.real_name" :placeholder="form.role === 'doctor' ? '请输入医生姓名' : '请输入昵称'" />
         </el-form-item>
-        <el-form-item label="性别">
-          <el-radio-group v-model="form.gender">
-            <el-radio :value="1">男</el-radio>
-            <el-radio :value="2">女</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="年龄">
-          <el-input-number v-model="form.age" :min="1" :max="150" controls-position="right" />
-        </el-form-item>
+
+        <template v-if="form.role === 'user'">
+          <el-form-item label="性别">
+            <el-radio-group v-model="form.gender">
+              <el-radio :value="1">男</el-radio>
+              <el-radio :value="2">女</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="年龄">
+            <el-input-number v-model="form.age" :min="1" :max="150" controls-position="right" />
+          </el-form-item>
+          <el-form-item label="过敏史">
+            <el-input
+              v-model="form.allergy_history"
+              type="textarea"
+              :rows="2"
+              placeholder="请输入过敏史（选填）"
+            />
+          </el-form-item>
+        </template>
+
+        <template v-if="form.role === 'doctor'">
+          <el-form-item label="所属科室">
+            <el-select v-model="form.department_id" placeholder="请选择科室" clearable style="width: 100%">
+              <el-option v-for="d in departments" :key="d.id" :label="d.name" :value="d.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="职称">
+            <el-input v-model="form.title" placeholder="如：主任医师" />
+          </el-form-item>
+          <el-form-item label="专长">
+            <el-input v-model="form.specialty" placeholder="请输入专长" />
+          </el-form-item>
+          <el-form-item label="简介">
+            <el-input v-model="form.introduction" type="textarea" :rows="2" placeholder="医生简介（选填）" />
+          </el-form-item>
+        </template>
+
         <el-form-item label="手机号">
           <el-input v-model="form.phone" placeholder="请输入手机号" maxlength="20" />
         </el-form-item>
-        <el-form-item label="过敏史">
-          <el-input
-            v-model="form.allergy_history"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入过敏史（选填）"
-          />
+        <el-form-item v-if="form.role === 'admin'" label="邮箱">
+          <el-input v-model="form.email" placeholder="请输入邮箱（选填）" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
@@ -376,6 +519,9 @@ onMounted(loadList)
 }
 .role-hint {
   font-size: 12px;
+  color: var(--text-secondary);
+}
+.text-muted {
   color: var(--text-secondary);
 }
 </style>

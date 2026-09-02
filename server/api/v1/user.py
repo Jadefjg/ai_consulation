@@ -56,6 +56,10 @@ def _doctor_to_account(doctor: Doctor) -> dict:
         "create_time": format_datetime(doctor.create_time),
         "role": "doctor",
         "role_label": _ROLE_LABELS["doctor"],
+        "department_id": doctor.department_id,
+        "title": doctor.title,
+        "specialty": doctor.specialty,
+        "introduction": doctor.introduction,
     }
 
 
@@ -76,6 +80,7 @@ def _admin_to_account(admin: Admin) -> dict:
         "create_time": format_datetime(admin.create_time),
         "role": role,
         "role_label": _ROLE_LABELS[role],
+        "email": admin.email,
     }
 
 

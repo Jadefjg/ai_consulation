@@ -145,7 +145,7 @@ function handleLogout() {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, #2c3e6b 0%, #1a1f3a 100%);
+  background: var(--sidebar-gradient);
   transition: width 0.3s;
   overflow: hidden;
 }
@@ -180,7 +180,7 @@ function handleLogout() {
 .sidebar-menu :deep(.el-menu-item:hover),
 .sidebar-menu :deep(.el-menu-item.is-active) {
   color: #fff;
-  background: rgba(102, 126, 234, 0.3) !important;
+  background: rgba(var(--color-brand-rgb), 0.35) !important;
 }
 
 .main-container {
@@ -211,7 +211,7 @@ function handleLogout() {
 }
 
 .collapse-btn:hover {
-  color: #667eea;
+  color: var(--color-brand);
 }
 
 .header-user {

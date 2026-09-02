@@ -276,7 +276,7 @@ onMounted(() => {
 
 .session-item:hover,
 .session-item.active {
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.1), transparent);
+  background: linear-gradient(90deg, rgba(var(--color-brand-rgb), 0.12), transparent);
 }
 
 .session-title {
@@ -351,7 +351,7 @@ onMounted(() => {
 }
 
 .message.user .message-bubble {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: var(--primary-gradient);
   color: #fff;
   border-bottom-right-radius: 4px;
 }
@@ -386,7 +386,7 @@ onMounted(() => {
 .typing-indicator span {
   width: 8px;
   height: 8px;
-  background: #667eea;
+  background: var(--color-brand);
   border-radius: 50%;
   animation: bounce 1.4s infinite ease-in-out both;
 }

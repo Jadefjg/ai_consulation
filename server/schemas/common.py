@@ -145,6 +145,27 @@ class DoctorUpdate(BaseModel):
     confirm_password: Optional[str] = None
 
 
+class AdminCreate(BaseModel):
+    """超级管理员创建管理员"""
+    username: str = Field(..., min_length=3, max_length=50, description="登录账号")
+    password: str = Field(..., min_length=6, description="密码")
+    confirm_password: str = Field(..., min_length=6, description="确认密码")
+    nickname: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    status: int = 1
+
+
+class AdminUpdate(BaseModel):
+    """超级管理员更新管理员"""
+    nickname: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    status: Optional[int] = None
+    password: Optional[str] = None
+    confirm_password: Optional[str] = None
+
+
 class DepartmentOut(BaseModel):
     """科室输出"""
     id: int

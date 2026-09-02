@@ -161,7 +161,7 @@ onMounted(loadDepartments)
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: var(--primary-gradient);
   position: relative;
   overflow: hidden;
 }
@@ -196,7 +196,7 @@ onMounted(loadDepartments)
 .auth-header h1 {
   font-size: 22px;
   margin: 10px 0 6px;
-  color: #11998e;
+  color: var(--color-brand);
 }
 
 .auth-header p {
@@ -235,15 +235,15 @@ onMounted(loadDepartments)
 }
 
 .role-card:hover {
-  border-color: rgba(17, 153, 142, 0.35);
+  border-color: rgba(var(--color-brand-rgb), 0.35);
   background: #fff;
 }
 
 .role-card.active {
   border-color: transparent;
-  background: linear-gradient(135deg, #11998e, #38ef7d);
+  background: var(--primary-gradient);
   color: #fff;
-  box-shadow: 0 4px 16px rgba(17, 153, 142, 0.35);
+  box-shadow: 0 4px 16px rgba(var(--color-brand-rgb), 0.35);
 }
 
 .role-icon-wrap {
@@ -253,7 +253,7 @@ onMounted(loadDepartments)
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: rgba(17, 153, 142, 0.08);
+  background: rgba(var(--color-brand-rgb), 0.08);
 }
 
 .role-card.active .role-icon-wrap {
@@ -269,7 +269,7 @@ onMounted(loadDepartments)
   width: 100%;
   height: 44px;
   font-size: 16px;
-  background: linear-gradient(135deg, #11998e, #38ef7d) !important;
+  background: var(--primary-gradient) !important;
   border: none !important;
   border-radius: 12px !important;
 }
@@ -282,7 +282,7 @@ onMounted(loadDepartments)
 }
 
 .link {
-  color: #11998e;
+  color: var(--color-brand);
   font-weight: 500;
 }
 </style>

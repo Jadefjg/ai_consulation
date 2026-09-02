@@ -162,9 +162,9 @@ function buildGraphOption(data, full = false) {
         gravity: full ? 0.05 : 0.1,
       },
       categories: [
-        { name: '疾病', itemStyle: { color: '#667eea' } },
-        { name: '症状', itemStyle: { color: '#11998e' } },
-        { name: '其他', itemStyle: { color: '#f5576c' } },
+        { name: '疾病', itemStyle: { color: '#b56bc4' } },
+        { name: '症状', itemStyle: { color: '#cc5084' } },
+        { name: '其他', itemStyle: { color: '#e07098' } },
       ],
       data: nodes,
       links,
@@ -306,14 +306,14 @@ onMounted(() => {
 }
 
 .common-tag:hover {
-  background: #11998e;
+  background: var(--color-brand);
   color: #fff;
-  border-color: #11998e;
+  border-color: var(--color-brand);
 }
 
 .disease-tag:hover {
-  background: #667eea;
-  border-color: #667eea;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .search-results {
@@ -332,7 +332,7 @@ onMounted(() => {
 }
 
 .result-tag:hover {
-  background: #667eea;
+  background: var(--color-accent);
   color: #fff;
 }
 
