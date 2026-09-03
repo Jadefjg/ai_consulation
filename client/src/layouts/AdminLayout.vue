@@ -174,13 +174,41 @@ function handleLogout() {
 }
 
 .sidebar-menu :deep(.el-menu-item) {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 500;
+  margin: 4px 10px;
+  border-radius: 8px;
+  height: 44px;
+  line-height: 44px;
 }
 
-.sidebar-menu :deep(.el-menu-item:hover),
+.sidebar-menu :deep(.el-menu-item .el-icon) {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover .el-icon) {
+  color: #fff !important;
+}
+
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  color: #fff;
-  background: rgba(var(--color-brand-rgb), 0.35) !important;
+  color: #fff !important;
+  font-weight: 700;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.32) 0%,
+    rgba(var(--color-brand-rgb), 0.55) 100%
+  ) !important;
+  box-shadow: inset 3px 0 0 #fff;
+  border-right: none !important;
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active .el-icon) {
+  color: #fff !important;
 }
 
 .main-container {

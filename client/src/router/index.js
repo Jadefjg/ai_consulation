@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import Login from '@/views/auth/Login.vue'
+import Register from '@/views/auth/Register.vue'
 
 /**
  * 路由配置
@@ -9,13 +11,13 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/auth/Login.vue'),
+    component: Login,
     meta: { public: true },
   },
   {
     path: '/register',
     name: 'Register',
-    component: () => import('@/views/auth/Register.vue'),
+    component: Register,
     meta: { public: true },
   },
   /* 用户门户路由 */
@@ -138,6 +140,20 @@ router.beforeEach((to, from, next) => {
   }
 
   next()
+})
+
+/** 动态分包加载失败时（多为 index.html 缓存过期），刷新后重试 */
+router.onError((error, to) => {
+  const message = String(error?.message || error)
+  if (
+    /Failed to fetch dynamically imported module|Loading chunk .* failed/i.test(message)
+    && !sessionStorage.getItem('chunk-reload')
+  ) {
+    sessionStorage.setItem('chunk-reload', '1')
+    window.location.assign(to.fullPath)
+    return
+  }
+  sessionStorage.removeItem('chunk-reload')
 })
 
 export default router

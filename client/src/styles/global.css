@@ -207,7 +207,7 @@ a {
   border: none;
 }
 
-.el-menu-item.is-active {
+.profile-sidebar .el-menu-item.is-active {
   background: linear-gradient(90deg, rgba(var(--color-brand-rgb), 0.16), transparent) !important;
   color: var(--color-brand) !important;
   border-right: 3px solid var(--color-brand);
