@@ -197,6 +197,36 @@ def create_schedule(doctor_id: int, work_date: date, time_slot: str, capacity: i
     return success({"id": row.id}, "排班创建成功")
 
 
+@router.get("/admin/schedules")
+def list_schedules(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(100, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: CurrentUser = Depends(require_roles("admin")),
+):
+    """管理员排班列表"""
+    query = db.query(DoctorSchedule)
+    total = query.count()
+    rows = query.order_by(DoctorSchedule.work_date.desc(), DoctorSchedule.id.desc()).offset(
+        (page - 1) * page_size
+    ).limit(page_size).all()
+    doctor_ids = {row.doctor_id for row in rows}
+    doctor_map = {
+        doctor.id: doctor.real_name or doctor.username
+        for doctor in db.query(Doctor).filter(Doctor.id.in_(doctor_ids)).all()
+    } if doctor_ids else {}
+    items = [{
+        "id": row.id,
+        "doctor_id": row.doctor_id,
+        "doctor_name": doctor_map.get(row.doctor_id, ""),
+        "work_date": format_date(row.work_date),
+        "time_slot": row.time_slot,
+        "capacity": row.capacity,
+        "status": row.status,
+    } for row in rows]
+    return page_result(items, total, page, page_size)
+
+
 @router.post("/admin/close-expired")
 def close_expired(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
     cutoff = datetime.now() - timedelta(days=1)
