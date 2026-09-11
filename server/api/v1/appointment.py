@@ -36,6 +36,15 @@ def create_appointment(req: AppointmentCreate, db: Session = Depends(get_db), cu
         raise HTTPException(status_code=400, detail="科室不存在或已停用")
     if doctor.department_id and doctor.department_id != req.department_id:
         raise HTTPException(status_code=400, detail="医生与所选科室不匹配")
+    # 同一医生同一时段只能接诊一位患者。已取消的预约不再占用名额。
+    occupied = db.query(Appointment.id).filter(
+        Appointment.doctor_id == req.doctor_id,
+        Appointment.visit_date == req.visit_date,
+        Appointment.time_slot == req.time_slot,
+        Appointment.status.in_((0, 1, 2)),
+    ).first()
+    if occupied:
+        raise HTTPException(status_code=400, detail="该医生此日期时段已被预约")
     appt = Appointment(
         user_id=current.user_id, doctor_id=req.doctor_id,
         department_id=req.department_id, visit_date=req.visit_date,
@@ -139,6 +148,15 @@ def update_status(appt_id: int, status: int, db: Session = Depends(get_db), curr
         raise HTTPException(status_code=404, detail="预约不存在")
     if current.role == "doctor" and appt.doctor_id != current.user_id:
         raise HTTPException(status_code=403, detail="无权修改其他医生的预约")
+    # 状态只能沿预约生命周期向前推进，取消和完成后不可重新开启。
+    allowed_transitions = {
+        0: {0, 1, 3},  # 待确认 -> 确认/取消
+        1: {1, 2, 3},  # 已确认 -> 完成/取消
+        2: {2},       # 已完成
+        3: {3},       # 已取消
+    }
+    if status not in allowed_transitions.get(appt.status, set()):
+        raise HTTPException(status_code=400, detail="不允许的预约状态流转")
     appt.status = status
     db.commit()
     return success(None, "状态更新成功")
