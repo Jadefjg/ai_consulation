@@ -10,6 +10,8 @@ const schedules = ref([])
 const timeSlotOptions = ['上午', '下午', '晚上']
 const form = ref({ doctor_id: '', work_date: '', time_slot: '', capacity: 1 })
 const editingId = ref(null)
+const editVisible = ref(false)
+const editForm = ref({ doctor_id: '', work_date: '', time_slot: '', capacity: 1 })
 
 async function load() {
   loading.value = true
@@ -64,7 +66,8 @@ async function submit() {
     submitting.value = false
   }
 }
-function editSchedule(row) { editingId.value = row.id; form.value = { doctor_id: String(row.doctor_id), work_date: row.work_date, time_slot: row.time_slot, capacity: row.capacity } }
+function editSchedule(row) { editingId.value = row.id; editForm.value = { doctor_id: String(row.doctor_id), work_date: row.work_date, time_slot: row.time_slot, capacity: row.capacity }; editVisible.value = true }
+async function saveEdit() { if (!editForm.value.doctor_id || !editForm.value.work_date || !editForm.value.time_slot) return ElMessage.warning('请填写完整排班信息'); await request.put(`/appointments/admin/schedules/${editingId.value}`, null, { params: { ...editForm.value, doctor_id: Number(editForm.value.doctor_id) } }); editVisible.value = false; editingId.value = null; ElMessage.success('排班已更新'); await loadSchedules() }
 async function deleteSchedule(row) { await ElMessageBox.confirm('确定删除该排班吗？', '提示', { type: 'warning' }); await request.delete(`/appointments/admin/schedules/${row.id}`); ElMessage.success('排班已删除'); await loadSchedules() }
 onMounted(() => {
   load()
@@ -116,6 +119,15 @@ onMounted(() => {
       </el-table>
       <el-empty v-if="!schedules.length" description="暂无排班数据" />
     </div>
+    <el-dialog v-model="editVisible" title="编辑排班" width="460px">
+      <el-form label-width="80px">
+        <el-form-item label="医生"><el-select v-model="editForm.doctor_id" placeholder="请选择医生" style="width:100%"><el-option v-for="doctor in doctors" :key="doctor.id" :value="doctor.id" :label="doctor.real_name" /></el-select></el-form-item>
+        <el-form-item label="日期"><el-date-picker v-model="editForm.work_date" value-format="YYYY-MM-DD" type="date" style="width:100%" /></el-form-item>
+        <el-form-item label="时段"><el-select v-model="editForm.time_slot" style="width:100%"><el-option v-for="slot in timeSlotOptions" :key="slot" :value="slot" :label="slot" /></el-select></el-form-item>
+        <el-form-item label="号源"><el-input-number v-model="editForm.capacity" :min="1" :max="100" /></el-form-item>
+      </el-form>
+      <template #footer><el-button @click="editVisible = false">取消</el-button><el-button type="primary" @click="saveEdit">保存</el-button></template>
+    </el-dialog>
   </div>
 </template>
 
