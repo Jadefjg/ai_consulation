@@ -43,6 +43,9 @@ class StatService:
             DoctorConsult.doctor_id == doctor_id,
             DoctorConsult.status == 1,
         ).scalar() or 0
+        overdue_consults = db.query(func.count(DoctorConsult.id)).filter(
+            DoctorConsult.doctor_id == doctor_id, DoctorConsult.status == 3,
+        ).scalar() or 0
 
         # 统计与该医生有关联的去重患者数
         patient_ids = set()
@@ -58,6 +61,7 @@ class StatService:
             "today_appointments": today_appointments,
             "total_patients": len(patient_ids),
             "replied_consults": replied_consults,
+            "overdue_consults": overdue_consults,
         }
 
     @staticmethod

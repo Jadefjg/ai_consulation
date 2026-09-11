@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from core.deps import require_roles, CurrentUser
 from core.response import success, page_result
 from db.session import get_db
-from models.doctor_consult import DoctorConsult, DoctorReply
+from models.doctor_consult import DoctorConsult, DoctorReply, DoctorConsultFollowup
 from models.user import User
 from models.doctor import Doctor
 from schemas.common import DoctorConsultCreate, DoctorReplyCreate
@@ -56,11 +56,13 @@ def my_consults(db: Session = Depends(get_db), current: CurrentUser = Depends(re
     data = []
     for c in items:
         replies = reply_map.get(c.id, [])
+        followups = db.query(DoctorConsultFollowup).filter(DoctorConsultFollowup.consult_id == c.id, DoctorConsultFollowup.user_id == current.user_id).order_by(DoctorConsultFollowup.id).all()
         data.append({
             "id": c.id, "doctor_id": c.doctor_id, "doctor_name": doctor_map.get(c.doctor_id, "待分配"),
             "chief_complaint": c.chief_complaint, "status": c.status,
             "create_time": format_datetime(c.create_time),
             "replies": [{"content": r.content, "create_time": format_datetime(r.create_time)} for r in replies],
+            "followups": [{"content": f.content, "create_time": format_datetime(f.create_time)} for f in followups],
         })
     return success(data)
 
@@ -70,7 +72,7 @@ def doctor_pending(db: Session = Depends(get_db), current: CurrentUser = Depends
     """医生待回复列表"""
     items = db.query(DoctorConsult).filter(
         (DoctorConsult.doctor_id == current.user_id) | (DoctorConsult.doctor_id.is_(None)),
-        DoctorConsult.status == 0,
+        DoctorConsult.status.in_((0, 3)),
     ).order_by(DoctorConsult.id.desc()).all()
     user_ids = {c.user_id for c in items}
     user_map = {
@@ -79,7 +81,7 @@ def doctor_pending(db: Session = Depends(get_db), current: CurrentUser = Depends
     } if user_ids else {}
     data = [{
         "id": c.id, "user_id": c.user_id, "user_name": user_map.get(c.user_id, ""),
-        "chief_complaint": c.chief_complaint, "create_time": format_datetime(c.create_time),
+        "chief_complaint": c.chief_complaint, "status": c.status, "create_time": format_datetime(c.create_time),
     } for c in items]
     return success(data)
 
@@ -97,6 +99,8 @@ def doctor_reply(req: DoctorReplyCreate, db: Session = Depends(get_db), current:
         raise HTTPException(status_code=404, detail="工单不存在")
     if consult.doctor_id is not None and consult.doctor_id != current.user_id:
         raise HTTPException(status_code=403, detail="无权回复其他医生的工单")
+    if consult.status not in (0, 3):
+        raise HTTPException(status_code=409, detail="该咨询已回复，请勿重复提交")
     if not (req.content or "").strip():
         raise HTTPException(status_code=400, detail="回复内容不能为空")
     if not consult.doctor_id:
@@ -104,8 +108,51 @@ def doctor_reply(req: DoctorReplyCreate, db: Session = Depends(get_db), current:
     reply = DoctorReply(consult_id=req.consult_id, doctor_id=current.user_id, content=req.content.strip())
     consult.status = 1
     db.add(reply)
+    db.add(Notification(
+        user_id=consult.user_id,
+        title="医生已回复您的咨询",
+        content="您提交的在线咨询已有医生回复，请进入在线咨询查看详情。",
+        type="consult_reply",
+    ))
+    db.add(AuditLog(
+        actor_id=current.user_id,
+        actor_role=current.role,
+        action="reply_consult",
+        target_type="consult",
+        target_id=consult.id,
+        detail="doctor replied and patient notified",
+    ))
     db.commit()
     return success(None, "回复成功")
+
+
+@router.post("/{consult_id}/followup")
+def patient_followup(consult_id: int, content: str, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
+    """患者追问并重新进入医生待处理队列。"""
+    text = (content or "").strip()
+    if not text or len(text) > 4000:
+        raise HTTPException(status_code=400, detail="追问内容不能为空且不能超过4000字")
+    consult = db.query(DoctorConsult).filter(DoctorConsult.id == consult_id, DoctorConsult.user_id == current.user_id).first()
+    if not consult:
+        raise HTTPException(status_code=404, detail="咨询不存在")
+    if consult.status == 2:
+        raise HTTPException(status_code=409, detail="咨询已关闭，无法继续追问")
+    db.add(DoctorConsultFollowup(consult_id=consult.id, user_id=current.user_id, content=text))
+    consult.status = 0
+    if consult.doctor_id:
+        db.add(Notification(user_id=consult.doctor_id, title="患者追问了咨询", content="您负责的咨询收到患者追问，请及时查看。", type="consult_followup"))
+    db.commit()
+    return success(None, "追问已提交")
+
+
+@router.put("/{consult_id}/close")
+def close_consult(consult_id: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user", "doctor"))):
+    consult = db.query(DoctorConsult).filter(DoctorConsult.id == consult_id).first()
+    if not consult or (current.role == "user" and consult.user_id != current.user_id) or (current.role == "doctor" and consult.doctor_id != current.user_id):
+        raise HTTPException(status_code=404, detail="咨询不存在或无权限")
+    consult.status = 2
+    db.commit()
+    return success(None, "咨询已关闭")
 
 
 @router.put("/admin/{consult_id}/assign")

@@ -40,6 +40,7 @@ const menuItems = computed(() => {
     { path: '/doctor/consults', label: '待回复咨询', icon: ChatDotRound },
     { path: '/doctor/appointments', label: '我的预约', icon: Calendar },
     { path: '/doctor/patients', label: '患者档案', icon: User },
+    { path: '/doctor/followups', label: '随访管理', icon: Calendar },
   ]
 })
 

@@ -15,6 +15,7 @@ const keyword = ref('')
 const page = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const versions = ref([])
 /** 状态轮询定时器 */
 let pollTimer = null
 
@@ -128,7 +129,19 @@ async function handleDelete(row) {
   } catch { /* */ }
 }
 
-onMounted(loadList)
+async function loadVersions() {
+  try { versions.value = (await request.get('/knowledge/versions')).data || [] } catch { versions.value = [] }
+}
+
+async function reviewVersion(row, approved) {
+  try {
+    await request.put(`/knowledge/versions/${row.id}/review`, null, { params: { approved } })
+    ElMessage.success(approved ? '审核通过，正在发布' : '版本已驳回')
+    await Promise.all([loadVersions(), loadList()])
+  } catch { /* */ }
+}
+
+onMounted(() => { loadList(); loadVersions() })
 onUnmounted(stopPolling)
 </script>
 
@@ -200,6 +213,17 @@ onUnmounted(stopPolling)
         @change="loadList"
       />
     </div>
+    <div class="modern-card version-panel">
+      <h3>知识版本审核</h3>
+      <el-table :data="versions" stripe>
+        <el-table-column prop="file_id" label="文件 ID" min-width="90" />
+        <el-table-column prop="version" label="版本" min-width="80" />
+        <el-table-column label="审核状态" min-width="100"><template #default="{ row }"><el-tag :type="row.status === 1 ? 'success' : row.status === 2 ? 'danger' : 'warning'">{{ row.status === 0 ? '待审核' : row.status === 1 ? '已发布' : '已驳回' }}</el-tag></template></el-table-column>
+        <el-table-column prop="review_comment" label="审核意见" min-width="180" />
+        <el-table-column label="操作" min-width="150"><template #default="{ row }"><template v-if="row.status === 0"><el-button link type="success" @click="reviewVersion(row, true)">通过发布</el-button><el-button link type="danger" @click="reviewVersion(row, false)">驳回</el-button></template></template></el-table-column>
+      </el-table>
+      <el-empty v-if="!versions.length" description="暂无待审核版本" />
+    </div>
   </div>
 </template>
 
@@ -216,4 +240,5 @@ onUnmounted(stopPolling)
   gap: 12px;
   margin-bottom: 16px;
 }
+.version-panel { margin-top: 20px; }
 </style>

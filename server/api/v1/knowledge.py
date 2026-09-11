@@ -1,5 +1,6 @@
 """知识库管理接口"""
 import os
+import hashlib
 from fastapi import APIRouter, Depends, UploadFile, File, Query, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,7 @@ from core.deps import require_roles, CurrentUser
 from core.response import success, page_result
 from db.session import get_db
 from models.knowledge import KnowledgeFile, KnowledgeChunk
+from models.p3 import KnowledgeVersion
 from services.rag_service import get_rag_service
 from utils.helpers import save_upload_file, get_file_type, format_datetime
 
@@ -88,8 +90,29 @@ async def upload_file(
     db.add(record)
     db.commit()
     db.refresh(record)
-    background_tasks.add_task(_vectorize_task, record.id)
-    return success({"id": record.id, "file_name": record.file_name}, "上传成功，正在向量化处理")
+    version = KnowledgeVersion(file_id=record.id, version=1, content_hash=hashlib.sha256(content).hexdigest(), status=0)
+    db.add(version)
+    db.commit()
+    return success({"id": record.id, "version_id": version.id, "file_name": record.file_name}, "上传成功，等待审核")
+
+
+@router.put("/versions/{version_id}/review")
+def review_version(version_id: int, approved: bool, background_tasks: BackgroundTasks, comment: str = "", db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
+    version = db.query(KnowledgeVersion).filter(KnowledgeVersion.id == version_id).first()
+    if not version: raise HTTPException(status_code=404, detail="知识版本不存在")
+    if version.status != 0: raise HTTPException(status_code=409, detail="该版本已审核")
+    version.status = 1 if approved else 2
+    version.reviewer_id = current.user_id
+    version.review_comment = comment.strip()
+    db.commit()
+    if approved: background_tasks.add_task(_vectorize_task, version.file_id)
+    return success(None, "审核通过，正在发布" if approved else "版本已驳回")
+
+
+@router.get("/versions")
+def list_versions(db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+    rows = db.query(KnowledgeVersion).order_by(KnowledgeVersion.id.desc()).all()
+    return success([{"id": r.id, "file_id": r.file_id, "version": r.version, "status": r.status, "reviewer_id": r.reviewer_id, "review_comment": r.review_comment, "create_time": format_datetime(r.create_time)} for r in rows])
 
 
 @router.post("/{file_id}/revectorize")

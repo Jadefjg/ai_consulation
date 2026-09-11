@@ -41,7 +41,7 @@ async function loadDoctors() {
 
 /** 提交咨询 */
 async function handleCreate() {
-  if (!form.doctor_id || !form.title || !form.content) {
+  if (!form.title || !form.content) {
     ElMessage.warning('请填写完整信息')
     return
   }
@@ -92,7 +92,7 @@ onMounted(() => {
     <el-dialog v-model="showDialog" title="发起咨询" width="520px">
       <el-form :model="form" label-width="80px">
         <el-form-item label="选择医生">
-          <el-select v-model="form.doctor_id" placeholder="请选择医生" style="width:100%">
+          <el-select v-model="form.doctor_id" placeholder="可不选，由平台统一分诊" clearable style="width:100%">
             <el-option v-for="d in doctors" :key="d.id" :label="d.real_name || d.username" :value="d.id" />
           </el-select>
         </el-form-item>

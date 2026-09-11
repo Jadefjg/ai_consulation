@@ -27,6 +27,12 @@ onMounted(loadStats)
       </el-col>
       <el-col :xs="12" :sm="6">
         <div class="stat-card">
+          <div class="stat-value">{{ stats.overdue_consults ?? '--' }}</div>
+          <div class="stat-label">超时咨询</div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="stat-card">
           <div class="stat-value">{{ stats.today_appointments ?? '--' }}</div>
           <div class="stat-label">今日预约</div>
         </div>

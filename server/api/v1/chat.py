@@ -1,5 +1,7 @@
 """AI问诊接口 - SSE流式"""
 import json
+import logging
+import re
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -14,6 +16,27 @@ from services.rag_service import get_rag_service
 from utils.helpers import format_datetime
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+EMERGENCY_PATTERNS = (
+    r"胸痛|胸口(?:剧烈)?疼痛|心前区疼痛",
+    r"呼吸困难|喘不上气|无法呼吸|窒息",
+    r"意识不清|失去意识|昏迷|晕厥",
+    r"口角歪斜|一侧肢体无力|言语不清",
+    r"大出血|血流不止|呕血|咯血",
+    r"严重过敏|喉头水肿|全身抽搐",
+    r"自杀|自残|不想活",
+)
+EMERGENCY_NOTICE = (
+    "**紧急就医提示：** 你的描述可能涉及急症风险。请立即拨打 120 或前往最近的急诊，"
+    "不要等待线上回复，也不要独自驾车。以下信息仅作辅助，不能替代急救处置。\n\n"
+)
+
+
+def _needs_emergency_notice(message: str) -> bool:
+    """以保守的关键词规则识别需优先线下急救的描述。"""
+    normalized = re.sub(r"\s+", "", message or "")
+    return any(re.search(pattern, normalized) for pattern in EMERGENCY_PATTERNS)
 
 
 @router.get("/sessions")
@@ -75,6 +98,9 @@ async def chat_send(req: ChatRequest, db: Session = Depends(get_db), current: Cu
         graph_results = []
         cost_time = 0
         try:
+            if _needs_emergency_notice(req.message):
+                full_content += EMERGENCY_NOTICE
+                yield f"data: {json.dumps({'type': 'content', 'content': EMERGENCY_NOTICE, 'safety_level': 'emergency'}, ensure_ascii=False)}\n\n"
             async for chunk in get_rag_service().chat_stream(req.message, history):
                 yield chunk
                 if chunk.startswith("data: "):
@@ -88,9 +114,11 @@ async def chat_send(req: ChatRequest, db: Session = Depends(get_db), current: Cu
                             cost_time = data.get("cost_time", 0)
                     except json.JSONDecodeError:
                         pass
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)}, ensure_ascii=False)}\n\n"
-            return
+        except Exception:
+            logger.exception("AI consultation failed: session_id=%s", session_id)
+            failure_text = "抱歉，本次 AI 回复未能完成。请稍后重试；如症状严重或持续加重，请及时线下就医。"
+            full_content = f"{full_content}{failure_text}"
+            yield f"data: {json.dumps({'type': 'error', 'message': failure_text}, ensure_ascii=False)}\n\n"
         from db.session import SessionLocal
         sdb = SessionLocal()
         try:
@@ -107,6 +135,9 @@ async def chat_send(req: ChatRequest, db: Session = Depends(get_db), current: Cu
             if sess:
                 sess.message_count = (sess.message_count or 0) + 2
             sdb.commit()
+        except Exception:
+            sdb.rollback()
+            logger.exception("Failed to persist AI response: session_id=%s", session_id)
         finally:
             sdb.close()
 

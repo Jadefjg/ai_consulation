@@ -5,7 +5,7 @@ import { useUserStore } from '@/stores/user'
 import { formatAvatar } from '@/utils/format'
 import {
   HomeFilled, ChatDotRound, FirstAidKit, Document,
-  Calendar, Notebook, Reading, User,
+  Calendar, Notebook, Reading, User, DataAnalysis,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -20,6 +20,7 @@ const navItems = [
   { path: '/portal/consult', label: '在线咨询', icon: Document },
   { path: '/portal/appointment', label: '预约挂号', icon: Calendar },
   { path: '/portal/records', label: '健康档案', icon: Notebook },
+  { path: '/portal/health-management', label: '健康管理', icon: DataAnalysis },
   { path: '/portal/articles', label: '健康资讯', icon: Reading },
 ]
 

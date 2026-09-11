@@ -209,6 +209,48 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=4000)
 
 
+class SymptomAssessmentCreate(BaseModel):
+    session_id: Optional[int] = None
+    symptoms: List[str] = Field(..., min_length=1, max_length=30)
+    onset_time: Optional[str] = Field(None, max_length=100)
+    duration: Optional[str] = Field(None, max_length=100)
+    severity: int = Field(1, ge=1, le=10)
+    temperature: Optional[str] = Field(None, max_length=20)
+    extra: Optional[Any] = None
+
+
+class AITransferCreate(BaseModel):
+    session_id: int
+    doctor_id: Optional[int] = None
+
+
+class AIReviewCreate(BaseModel):
+    approved: bool
+    doctor_comment: Optional[str] = Field(None, max_length=4000)
+    archive_record: bool = False
+
+class FollowupPlanCreate(BaseModel):
+    user_id: int
+    title: str = Field(..., min_length=1, max_length=200)
+    frequency_days: int = Field(30, ge=1, le=365)
+    next_date: date
+    notes: Optional[str] = None
+
+class FollowupResponse(BaseModel):
+    response: str = Field(..., min_length=1, max_length=4000)
+
+class ChronicCreate(BaseModel):
+    disease: str = Field(..., min_length=1, max_length=100)
+    target: Optional[Any] = None
+
+class MetricCreate(BaseModel):
+    metric: str = Field(..., min_length=1, max_length=50)
+    value: str = Field(..., min_length=1, max_length=100)
+
+class RiskAssessmentCreate(BaseModel):
+    factors: dict[str, Any] = Field(default_factory=dict)
+
+
 class SessionOut(BaseModel):
     """会话输出"""
     id: int

@@ -154,10 +154,12 @@ async function sendMessage() {
       }
     }
     loadSessions()
-  } catch {
-    assistantMsg.content = '抱歉，AI 回复出现异常，请稍后重试。'
-    assistantMsg.html = assistantMsg.content
-    ElMessage.error('发送失败')
+  } catch (error) {
+    if (!assistantMsg.content) {
+      assistantMsg.content = error?.message || '抱歉，AI 回复出现异常，请稍后重试。'
+      assistantMsg.html = renderAssistantHtml(assistantMsg.content)
+    }
+    ElMessage.error(error?.message || '发送失败')
   } finally {
     sending.value = false
   }
