@@ -32,6 +32,7 @@ const menuItems = computed(() => {
       { path: '/admin/appointments', label: '预约管理', icon: Calendar },
       { path: '/admin/articles', label: '文章管理', icon: Document },
       { path: '/admin/notices', label: '公告管理', icon: Bell },
+      { path: '/admin/schedules', label: '排班号源', icon: Calendar },
     ]
   }
   return [

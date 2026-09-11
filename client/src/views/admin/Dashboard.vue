@@ -17,6 +17,8 @@ const consultTrend = ref({})
 const appointmentDept = ref({})
 const userGrowth = ref({})
 const knowledgeType = ref({})
+const outcomes = ref({})
+const workload = ref({})
 
 /** 加载统计数据 */
 async function loadStats() {
@@ -27,12 +29,16 @@ async function loadStats() {
       request.get('/stat/appointment-dept'),
       request.get('/stat/user-growth'),
       request.get('/stat/knowledge-type'),
+      request.get('/stat/appointment-outcomes'),
+      request.get('/stat/doctor-workload'),
     ])
     if (ov.status === 'fulfilled') overview.value = ov.value.data || {}
     if (ct.status === 'fulfilled') consultTrend.value = buildLineOption('咨询趋势', ct.value.data)
     if (ad.status === 'fulfilled') appointmentDept.value = buildPieOption('预约科室分布', ad.value.data)
     if (ug.status === 'fulfilled') userGrowth.value = buildBarOption('用户增长', ug.value.data)
     if (kt.status === 'fulfilled') knowledgeType.value = buildPieOption('知识库类型', kt.value.data)
+    if (outcomes.status === 'fulfilled') outcomes.value = outcomes.value.data || {}
+    if (workload.status === 'fulfilled') workload.value = buildBarOption('医生工作量', workload.value.data)
   } catch { /* */ }
 }
 
@@ -128,6 +134,8 @@ onMounted(loadStats)
 
     <!-- 图表区域 -->
     <el-row :gutter="20">
+      <el-col :xs="24" :md="12"><div class="chart-box"><div class="chart-title">医生工作量</div><v-chart :option="workload" autoresize style="height:280px" /></div></el-col>
+      <el-col :xs="24" :md="12"><div class="chart-box"><div class="chart-title">患者爽约率：{{ outcomes.no_show_rate ?? '--' }}%</div><v-chart :option="buildPieOption('爽约', [{name:'爽约',value:outcomes.no_show||0},{name:'正常',value:Math.max((outcomes.total||0)-(outcomes.no_show||0),0)}])" autoresize style="height:280px" /></div></el-col>
       <el-col :xs="24" :md="12">
         <div class="chart-box">
           <div class="chart-title">咨询趋势</div>

@@ -54,3 +54,11 @@ def user_growth(
 def knowledge_type(db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
     """知识库类型分布"""
     return success(StatService.knowledge_type_distribution(db))
+
+@router.get("/appointment-outcomes")
+def appointment_outcomes(db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+    return success(StatService.appointment_outcomes(db))
+
+@router.get("/doctor-workload")
+def doctor_workload(db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+    return success(StatService.doctor_workload(db))

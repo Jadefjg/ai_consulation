@@ -13,6 +13,8 @@ from db.session import engine, Base
 from api.v1 import api_router
 from utils.validation import format_validation_errors
 import models  # noqa: F401  注册全部 ORM 模型，供 create_all 使用
+import asyncio
+from services.scheduler import expired_appointment_worker
 
 
 def _ensure_runtime_dirs() -> None:
@@ -33,7 +35,11 @@ async def lifespan(app: FastAPI):
         print("[警告] JWT_SECRET_KEY 使用默认值，生产环境请通过环境变量设置强密钥")
     if not settings.openai_api_key:
         print("[警告] OPENAI_API_KEY 未设置，LLM功能不可用")
+    stop = asyncio.Event()
+    task = asyncio.create_task(expired_appointment_worker(stop))
     yield
+    stop.set()
+    await task
 
 
 app = FastAPI(

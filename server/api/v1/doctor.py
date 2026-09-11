@@ -97,6 +97,10 @@ def create_doctor(
         raise HTTPException(status_code=400, detail="两次密码输入不一致")
     if username_exists(db, req.username):
         raise HTTPException(status_code=400, detail="用户名已存在")
+    if req.department_id is not None and not db.query(Department.id).filter(
+        Department.id == req.department_id, Department.status == 1
+    ).first():
+        raise HTTPException(status_code=400, detail="所属科室不存在或已停用")
     doctor = Doctor(
         username=req.username,
         password=hash_password(req.password),
@@ -135,6 +139,10 @@ def update_doctor(
     if req.real_name is not None:
         doctor.real_name = req.real_name
     if req.department_id is not None:
+        if not db.query(Department.id).filter(
+            Department.id == req.department_id, Department.status == 1
+        ).first():
+            raise HTTPException(status_code=400, detail="所属科室不存在或已停用")
         doctor.department_id = req.department_id
     if req.title is not None:
         doctor.title = req.title

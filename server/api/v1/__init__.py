@@ -1,6 +1,6 @@
 """API v1 路由汇总"""
 from fastapi import APIRouter
-from api.v1 import auth, user, doctor, department, knowledge, chat, graph, consult, appointment, record, article, notice, stat, profile, admin_account
+from api.v1 import auth, user, doctor, department, knowledge, chat, graph, consult, appointment, record, article, notice, stat, profile, admin_account, operations
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -19,3 +19,4 @@ api_router.include_router(article.router, prefix="/articles", tags=["健康科�
 api_router.include_router(notice.router, prefix="/notices", tags=["系统公告"])
 api_router.include_router(stat.router, prefix="/stat", tags=["数据统计"])
 api_router.include_router(profile.router, prefix="/profile", tags=["个人中心"])
+api_router.include_router(operations.router, prefix="/operations", tags=["运营管理"])

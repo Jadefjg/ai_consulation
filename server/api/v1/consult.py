@@ -11,6 +11,7 @@ from models.user import User
 from models.doctor import Doctor
 from schemas.common import DoctorConsultCreate, DoctorReplyCreate
 from utils.helpers import format_datetime
+from models.operations import Notification, AuditLog
 
 router = APIRouter()
 
@@ -105,6 +106,21 @@ def doctor_reply(req: DoctorReplyCreate, db: Session = Depends(get_db), current:
     db.add(reply)
     db.commit()
     return success(None, "回复成功")
+
+
+@router.put("/admin/{consult_id}/assign")
+def assign_consult(consult_id: int, doctor_id: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
+    consult = db.query(DoctorConsult).filter(DoctorConsult.id == consult_id).first()
+    doctor = db.query(Doctor).filter(Doctor.id == doctor_id, Doctor.status == 1).first()
+    if not consult or not doctor:
+        raise HTTPException(status_code=404, detail="工单或医生不存在")
+    if consult.status != 0:
+        raise HTTPException(status_code=400, detail="已回复工单不可转派")
+    consult.doctor_id = doctor_id
+    db.add(Notification(user_id=consult.user_id, title="咨询医生已分配", content=f"您的咨询已分配给{doctor.real_name}医生", type="consult"))
+    db.add(AuditLog(actor_id=current.user_id, actor_role=current.role, action="assign_consult", target_type="consult", target_id=consult_id, detail=f"doctor={doctor_id}"))
+    db.commit()
+    return success(None, "工单转派成功")
 
 
 @router.get("/admin/list")

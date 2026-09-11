@@ -120,3 +120,15 @@ class StatService:
             func.count(KnowledgeFile.id).label("count"),
         ).group_by(KnowledgeFile.file_type).all()
         return [{"name": r[0], "value": r[1]} for r in rows]
+
+    @staticmethod
+    def appointment_outcomes(db: Session) -> dict:
+        total = db.query(func.count(Appointment.id)).scalar() or 0
+        no_show = db.query(func.count(Appointment.id)).filter(Appointment.status == 4).scalar() or 0
+        return {"total": total, "no_show": no_show, "no_show_rate": round(no_show / total * 100, 2) if total else 0}
+
+    @staticmethod
+    def doctor_workload(db: Session) -> list:
+        rows = db.query(Doctor.id, Doctor.real_name, func.count(Appointment.id)).join(
+            Appointment, Appointment.doctor_id == Doctor.id, isouter=True).group_by(Doctor.id).all()
+        return [{"doctor_id": r[0], "doctor_name": r[1], "appointments": r[2]} for r in rows]

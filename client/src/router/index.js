@@ -70,6 +70,7 @@ const routes = [
       { path: 'appointments', name: 'AdminAppointments', component: () => import('@/views/admin/Appointments.vue'), meta: { title: '预约管理' } },
       { path: 'articles', name: 'AdminArticles', component: () => import('@/views/admin/Articles.vue'), meta: { title: '文章管理' } },
       { path: 'notices', name: 'AdminNotices', component: () => import('@/views/admin/Notices.vue'), meta: { title: '公告管理' } },
+      { path: 'schedules', name: 'AdminSchedules', component: () => import('@/views/admin/Schedules.vue'), meta: { title: '排班号源' } },
       { path: 'profile', name: 'AdminProfile', component: () => import('@/views/admin/Profile.vue'), meta: { title: '个人中心' } },
     ],
   },
