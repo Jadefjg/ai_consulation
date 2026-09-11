@@ -37,6 +37,15 @@ async function loadSchedules() {
   }
 }
 
+async function toggleStatus(row) {
+  const nextStatus = row.status === 1 ? 0 : 1
+  try {
+    await request.put(`/appointments/admin/schedules/${row.id}/status`, null, { params: { status: nextStatus } })
+    row.status = nextStatus
+    ElMessage.success(nextStatus === 1 ? '排班已启用' : '排班已停用')
+  } catch { /* request interceptor shows the error */ }
+}
+
 async function submit() {
   if (!form.value.doctor_id || !form.value.work_date) return ElMessage.warning('请选择医生和日期')
   submitting.value = true
@@ -89,7 +98,9 @@ onMounted(() => {
         <el-table-column prop="capacity" label="号源" min-width="90" />
         <el-table-column label="状态" min-width="90">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '启用' : '停用' }}</el-tag>
+            <el-button link :type="row.status === 1 ? 'success' : 'info'" @click="toggleStatus(row)">
+              {{ row.status === 1 ? '启用' : '停用' }}
+            </el-button>
           </template>
         </el-table-column>
       </el-table>

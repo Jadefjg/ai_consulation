@@ -227,6 +227,19 @@ def list_schedules(
     return page_result(items, total, page, page_size)
 
 
+@router.put("/admin/schedules/{schedule_id}/status")
+def update_schedule_status(schedule_id: int, status: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
+    if status not in (0, 1):
+        raise HTTPException(status_code=400, detail="排班状态无效")
+    row = db.query(DoctorSchedule).filter(DoctorSchedule.id == schedule_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="排班不存在")
+    row.status = status
+    db.add(AuditLog(actor_id=current.user_id, actor_role=current.role, action="update_schedule_status", target_type="schedule", target_id=row.id, detail=str(status)))
+    db.commit()
+    return success(None, "排班状态已更新")
+
+
 @router.post("/admin/close-expired")
 def close_expired(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
     cutoff = datetime.now() - timedelta(days=1)
