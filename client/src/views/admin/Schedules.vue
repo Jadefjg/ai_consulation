@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
 import { parseListData } from '@/utils/format'
 const doctors = ref([])
@@ -9,6 +9,7 @@ const submitting = ref(false)
 const schedules = ref([])
 const timeSlotOptions = ['上午', '下午', '晚上']
 const form = ref({ doctor_id: '', work_date: '', time_slot: '', capacity: 1 })
+const editingId = ref(null)
 
 async function load() {
   loading.value = true
@@ -50,15 +51,21 @@ async function submit() {
   if (!form.value.doctor_id || !form.value.work_date) return ElMessage.warning('请选择医生和日期')
   submitting.value = true
   try {
-    await request.post('/appointments/admin/schedules', null, {
+    const url = editingId.value ? `/appointments/admin/schedules/${editingId.value}` : '/appointments/admin/schedules'
+    const method = editingId.value ? 'put' : 'post'
+    await request[method](url, null, {
       params: { ...form.value, doctor_id: Number(form.value.doctor_id) },
     })
-    ElMessage.success('排班创建成功')
+    ElMessage.success(editingId.value ? '排班已更新' : '排班创建成功')
+    editingId.value = null
+    form.value = { doctor_id: '', work_date: '', time_slot: '', capacity: 1 }
     await loadSchedules()
   } finally {
     submitting.value = false
   }
 }
+function editSchedule(row) { editingId.value = row.id; form.value = { doctor_id: String(row.doctor_id), work_date: row.work_date, time_slot: row.time_slot, capacity: row.capacity } }
+async function deleteSchedule(row) { await ElMessageBox.confirm('确定删除该排班吗？', '提示', { type: 'warning' }); await request.delete(`/appointments/admin/schedules/${row.id}`); ElMessage.success('排班已删除'); await loadSchedules() }
 onMounted(() => {
   load()
   loadSchedules()
@@ -102,6 +109,9 @@ onMounted(() => {
               {{ row.status === 1 ? '启用' : '停用' }}
             </el-button>
           </template>
+        </el-table-column>
+        <el-table-column label="操作" min-width="140" fixed="right">
+          <template #default="{ row }"><el-button link type="primary" @click="editSchedule(row)">编辑</el-button><el-button link type="danger" @click="deleteSchedule(row)">删除</el-button></template>
         </el-table-column>
       </el-table>
       <el-empty v-if="!schedules.length" description="暂无排班数据" />

@@ -239,6 +239,21 @@ def update_schedule_status(schedule_id: int, status: int, db: Session = Depends(
     db.commit()
     return success(None, "排班状态已更新")
 
+@router.put("/admin/schedules/{schedule_id}")
+def edit_schedule(schedule_id: int, doctor_id: int, work_date: date, time_slot: str, capacity: int = 1, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+    if time_slot not in _VALID_SLOTS or not 1 <= capacity <= 100:
+        raise HTTPException(status_code=400, detail="排班参数无效")
+    row = db.query(DoctorSchedule).filter(DoctorSchedule.id == schedule_id).first()
+    if not row: raise HTTPException(status_code=404, detail="排班不存在")
+    row.doctor_id, row.work_date, row.time_slot, row.capacity = doctor_id, work_date, time_slot, capacity
+    db.commit(); return success(None, "排班已更新")
+
+@router.delete("/admin/schedules/{schedule_id}")
+def delete_schedule(schedule_id: int, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+    row = db.query(DoctorSchedule).filter(DoctorSchedule.id == schedule_id).first()
+    if not row: raise HTTPException(status_code=404, detail="排班不存在")
+    db.delete(row); db.commit(); return success(None, "排班已删除")
+
 
 @router.post("/admin/close-expired")
 def close_expired(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
