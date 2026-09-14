@@ -1,4 +1,6 @@
-"""写入演示账号、科室、资讯，空库时自动执行，已有管理员则跳过"""
+"""显式启用时写入演示数据；生产环境禁止运行。"""
+import logging
+import os
 import sys
 from pathlib import Path
 
@@ -11,6 +13,8 @@ from models.department import Department
 from models.doctor import Doctor
 from models.user import User
 from core.security import hash_password
+
+logger = logging.getLogger(__name__)
 
 DEPARTMENTS = [
     ("内科", "常见内科疾病诊疗", 1),
@@ -41,10 +45,15 @@ def seed_demo() -> bool:
     空库写入演示数据
     :return: 是否实际写入了数据
     """
+    if os.getenv("APP_ENV", "development").lower() in {"production", "prod"}:
+        raise RuntimeError("生产环境禁止初始化演示账号")
+    demo_password = os.getenv("DEMO_PASSWORD", "")
+    if len(demo_password) < 8:
+        raise RuntimeError("启用演示数据时必须设置至少 8 位的 DEMO_PASSWORD")
     db = SessionLocal()
     try:
         if db.query(Admin).first():
-            print("[seed] 已存在管理员账号，跳过演示数据初始化")
+            logger.info("demo seed skipped because an administrator exists", extra={"event": "demo_seed_skipped"})
             return False
 
         for name, desc, order in DEPARTMENTS:
@@ -54,13 +63,13 @@ def seed_demo() -> bool:
         dept_map = {d.name: d.id for d in db.query(Department).all()}
         db.add(Admin(
             username="admin",
-            password=hash_password("123456"),
+            password=hash_password(demo_password),
             nickname="系统管理员",
             status=1,
         ))
         db.add(Doctor(
             username="doctor",
-            password=hash_password("123456"),
+            password=hash_password(demo_password),
             real_name="张伟",
             department_id=dept_map.get("内科"),
             title="主任医师",
@@ -71,7 +80,7 @@ def seed_demo() -> bool:
         ))
         db.add(Doctor(
             username="doctor2",
-            password=hash_password("123456"),
+            password=hash_password(demo_password),
             real_name="李娜",
             department_id=dept_map.get("心血管内科"),
             title="副主任医师",
@@ -82,7 +91,7 @@ def seed_demo() -> bool:
         ))
         db.add(User(
             username="user",
-            password=hash_password("123456"),
+            password=hash_password(demo_password),
             real_name="王小明",
             gender=1,
             age=28,
@@ -115,10 +124,7 @@ def seed_demo() -> bool:
             status=1,
         ))
         db.commit()
-        print("[seed] 演示数据初始化完成")
-        print("[seed] 管理员 admin / 123456")
-        print("[seed] 医生 doctor / 123456 ， doctor2 / 123456")
-        print("[seed] 患者 user / 123456")
+        logger.info("demo seed completed", extra={"event": "demo_seed_completed"})
         return True
     except Exception:
         db.rollback()

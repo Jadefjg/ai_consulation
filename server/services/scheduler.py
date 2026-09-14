@@ -1,10 +1,13 @@
 """轻量进程内调度器；生产环境建议改用 Celery/APScheduler。"""
 import asyncio
+import logging
 from datetime import date, datetime, timedelta
 from db.session import SessionLocal
 from models.appointment import Appointment
 from models.operations import Notification
 from models.doctor_consult import DoctorConsult
+
+logger = logging.getLogger(__name__)
 
 async def expired_appointment_worker(stop: asyncio.Event):
     while not stop.is_set():
@@ -27,4 +30,4 @@ async def expired_appointment_worker(stop: asyncio.Event):
         try:
             await asyncio.wait_for(stop.wait(), timeout=300)
         except asyncio.TimeoutError:
-            pass
+            logger.debug("scheduler interval elapsed", extra={"event": "scheduler_tick"})

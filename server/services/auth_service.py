@@ -16,7 +16,7 @@ from models.user import User
 from schemas.common import LoginRequest, RegisterRequest, TokenResponse
 from utils.account import username_exists
 
-_PUBLIC_REGISTER_ROLES = {"user", "doctor", "admin"}
+_PUBLIC_REGISTER_ROLES = {"user", "doctor"}
 
 
 class AuthService:
@@ -114,7 +114,7 @@ class AuthService:
     @staticmethod
     def register(db: Session, req: RegisterRequest) -> TokenResponse:
         """
-        三角色公开注册（用户/医生/管理员）
+        公开注册（用户/医生）；管理员账号只能由超级管理员创建。
         """
         role = req.role or "user"
         if role not in _PUBLIC_REGISTER_ROLES:

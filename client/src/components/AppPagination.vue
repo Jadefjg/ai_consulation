@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 /**
  * 统一列表底部分页栏
  * 布局：共 N 条 | 上一页 | 页码 | 下一页 | 每页条数 | 跳转

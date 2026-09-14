@@ -1,7 +1,7 @@
 """RAG检索增强服务"""
 import json
+import logging
 import os
-import sys
 import time
 from typing import AsyncGenerator, List, Dict, Any
 from langchain_openai import ChatOpenAI
@@ -13,20 +13,14 @@ from rag.splitter import split_text
 from rag.vector_store import get_vector_store
 from models.knowledge import KnowledgeFile, KnowledgeChunk
 from services.graph_service import get_graph_service
+from services.retrieval_service import hybrid_search
 
-
-def _safe_console_text(text: str) -> str:
-    """将文本转为当前控制台可安全输出的字符串，避免GBK编码报错"""
-    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
-    return text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+logger = logging.getLogger(__name__)
 
 
 def _rag_log(tag: str, message: str) -> None:
-    """RAG流程控制台日志（兼容Windows GBK控制台，日志失败不影响业务）"""
-    try:
-        print(f"[RAG-{tag}] {_safe_console_text(message)}", flush=True)
-    except Exception:
-        pass
+    """记录结构化 RAG 流程日志。"""
+    logger.info(message, extra={"event": f"rag_{tag}"})
 
 
 class RagService:
@@ -121,7 +115,7 @@ class RagService:
                 found.append(aliases.get(s, s))
         return list(dict.fromkeys(found))
 
-    def _build_context(self, query: str) -> tuple[str, List[Dict], List[Dict]]:
+    def _build_context(self, query: str, db: Session | None = None) -> tuple[str, List[Dict], List[Dict]]:
         """
         构建RAG上下文
         :return: (context_text, references, graph_results)
@@ -130,7 +124,7 @@ class RagService:
 
         # 向量检索
         vector_start = time.time()
-        vector_results = self.vector_store.search(query)
+        vector_results = hybrid_search(db, query) if db is not None else self.vector_store.search(query)
         vector_cost = int((time.time() - vector_start) * 1000)
         _rag_log("检索", f"向量检索完成，耗时 {vector_cost}ms，命中 {len(vector_results)} 条")
         references = []
@@ -180,7 +174,7 @@ class RagService:
         _rag_log("检索", f"上下文构建完成，参考内容长度 {len(context)} 字符")
         return context, references, graph_results
 
-    async def chat_stream(self, query: str, history: List[Dict] = None) -> AsyncGenerator[str, None]:
+    async def chat_stream(self, query: str, history: List[Dict] = None, db: Session | None = None) -> AsyncGenerator[str, None]:
         """
         SSE流式对话
         :yield: SSE格式数据
@@ -188,7 +182,7 @@ class RagService:
         start_time = time.time()
         history = history or []
         _rag_log("LLM", f"收到问诊请求，历史消息 {len(history)} 条")
-        context, references, graph_results = self._build_context(query)
+        context, references, graph_results = self._build_context(query, db)
 
         system_prompt = """你是AI智能医疗问诊助手，基于提供的知识库和医疗知识图谱为用户提供健康咨询。
 请注意：
@@ -223,7 +217,20 @@ class RagService:
         full_content = ""
         chunk_count = 0
         try:
-            async for chunk in self.llm.astream(messages):
+            if settings.ai_service_url:
+                import httpx
+
+                async def remote_stream():
+                    async with httpx.AsyncClient(timeout=310) as client:
+                        async with client.stream("POST", f"{settings.ai_service_url.rstrip('/')}/internal/generate", json={"messages": messages}) as response:
+                            response.raise_for_status()
+                            async for text_chunk in response.aiter_text():
+                                yield type("RemoteChunk", (), {"content": text_chunk})()
+
+                source = remote_stream()
+            else:
+                source = self.llm.astream(messages)
+            async for chunk in source:
                 if chunk.content:
                     full_content += chunk.content
                     chunk_count += 1

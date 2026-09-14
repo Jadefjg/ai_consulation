@@ -1,5 +1,6 @@
 """健康科普文章接口"""
 from fastapi import APIRouter, Depends, Query, HTTPException
+from sqlalchemy import func, update
 from sqlalchemy.orm import Session
 
 from core.deps import require_roles, CurrentUser
@@ -8,6 +9,7 @@ from db.session import get_db
 from models.article import Article
 from schemas.common import ArticleCreate
 from utils.helpers import format_datetime
+from services.redis_service import cache_delete_pattern, cache_get, cache_set
 
 router = APIRouter()
 
@@ -20,6 +22,10 @@ def list_articles(
     db: Session = Depends(get_db),
 ):
     """文章列表（公开，仅已发布）"""
+    cache_key = f"articles:list:{page}:{page_size}:{category}"
+    cached = cache_get(cache_key)
+    if cached is not None:
+        return cached
     q = db.query(Article).filter(Article.status == 1)
     if category:
         q = q.filter(Article.category == category)
@@ -30,7 +36,9 @@ def list_articles(
         "summary": a.summary, "view_count": a.view_count,
         "create_time": format_datetime(a.create_time),
     } for a in items]
-    return page_result(data, total, page, page_size)
+    result = page_result(data, total, page, page_size)
+    cache_set(cache_key, result)
+    return result
 
 
 @router.get("/admin/list")
@@ -88,8 +96,13 @@ def get_article(article_id: int, db: Session = Depends(get_db)):
     article = db.query(Article).filter(Article.id == article_id, Article.status == 1).first()
     if not article:
         raise HTTPException(status_code=404, detail="文章不存在或已下架")
-    article.view_count = (article.view_count or 0) + 1
+    db.execute(
+        update(Article)
+        .where(Article.id == article_id, Article.status == 1)
+        .values(view_count=func.coalesce(Article.view_count, 0) + 1)
+    )
     db.commit()
+    db.refresh(article)
     return success({
         "id": article.id,
         "title": article.title,
@@ -106,6 +119,7 @@ def create_article(req: ArticleCreate, db: Session = Depends(get_db), _: Current
     article = Article(title=req.title, category=req.category, summary=req.summary, content=req.content, status=req.status)
     db.add(article)
     db.commit()
+    cache_delete_pattern("articles:list:*")
     return success({"id": article.id}, "创建成功")
 
 
@@ -121,6 +135,7 @@ def update_article(article_id: int, req: ArticleCreate, db: Session = Depends(ge
     article.content = req.content
     article.status = req.status
     db.commit()
+    cache_delete_pattern("articles:list:*")
     return success(None, "更新成功")
 
 
@@ -132,4 +147,5 @@ def delete_article(article_id: int, db: Session = Depends(get_db), _: CurrentUse
         raise HTTPException(status_code=404, detail="文章不存在")
     db.delete(article)
     db.commit()
+    cache_delete_pattern("articles:list:*")
     return success(None, "删除成功")

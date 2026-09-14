@@ -1,5 +1,6 @@
 """AI智能医疗问诊平台系统 - FastAPI应用入口"""
 import os
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
@@ -7,14 +8,19 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 
 from core.config import settings
-from db.session import engine, Base
-from api.v1 import api_router
+from core.logging import configure_logging
+from db.session import engine
+from api.v1.router import api_router
 from utils.validation import format_validation_errors
 import models  # noqa: F401  注册全部 ORM 模型，供 create_all 使用
-import asyncio
-from services.scheduler import expired_appointment_worker
+from services.redis_service import get_redis
+from core.observability import setup_observability
+
+configure_logging(settings.log_level)
+logger = logging.getLogger(__name__)
 
 
 def _ensure_runtime_dirs() -> None:
@@ -29,17 +35,13 @@ def _ensure_runtime_dirs() -> None:
 async def lifespan(app: FastAPI):
     """应用生命周期：启动时初始化目录并确保数据表存在"""
     _ensure_runtime_dirs()
-    Base.metadata.create_all(bind=engine)
-    print(f"[启动] {settings.project_name} 服务已就绪")
-    if settings.jwt_secret_key == "ai-medical-consult-secret-key-2026":
-        print("[警告] JWT_SECRET_KEY 使用默认值，生产环境请通过环境变量设置强密钥")
+    logger.info("service ready", extra={"event": "service_ready"})
     if not settings.openai_api_key:
-        print("[警告] OPENAI_API_KEY 未设置，LLM功能不可用")
-    stop = asyncio.Event()
-    task = asyncio.create_task(expired_appointment_worker(stop))
+        logger.warning(
+            "OPENAI_API_KEY is not configured; LLM features are disabled",
+            extra={"event": "config_warning"},
+        )
     yield
-    stop.set()
-    await task
 
 
 app = FastAPI(
@@ -48,6 +50,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+setup_observability(app, engine)
 
 
 @app.exception_handler(HTTPException)
@@ -77,7 +80,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # CORS跨域（Bearer Token 场景不依赖 Cookie，无需 credentials）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -100,5 +103,39 @@ async def root():
 
 @app.get("/health")
 async def health():
-    """容器健康检查"""
+    """存活检查：进程能响应即可。"""
     return {"status": "ok"}
+
+
+@app.get("/health/ready")
+async def readiness():
+    """就绪检查：验证数据库和必需的运行目录可用。"""
+    checks = {}
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        logger.exception(
+            "readiness database check failed",
+            extra={"event": "readiness_failed", "check": "database"},
+        )
+        checks["database"] = "failed"
+
+    required_dirs = (settings.upload_dir, settings.chroma_persist_dir)
+    directories_ok = all(os.path.isdir(path) and os.access(path, os.W_OK) for path in required_dirs)
+    checks["directories"] = "ok" if directories_ok else "failed"
+    try:
+        get_redis().ping()
+        checks["redis"] = "ok"
+    except Exception:
+        logger.exception(
+            "readiness Redis check failed",
+            extra={"event": "readiness_failed", "check": "redis"},
+        )
+        checks["redis"] = "failed"
+    ready = all(value == "ok" for value in checks.values())
+    return JSONResponse(
+        status_code=200 if ready else 503,
+        content={"status": "ready" if ready else "not_ready", "checks": checks},
+    )

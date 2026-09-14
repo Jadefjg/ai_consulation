@@ -28,7 +28,7 @@ def save_upload_file(file_content: bytes, original_name: str, sub_dir: str = "")
     upload_base = settings.upload_dir
     target_dir = os.path.join(upload_base, sub_dir) if sub_dir else upload_base
     os.makedirs(target_dir, exist_ok=True)
-    ext = os.path.splitext(original_name)[1]
+    ext = os.path.splitext(os.path.basename(original_name))[1].lower()
     new_name = f"{uuid.uuid4().hex}{ext}"
     file_path = os.path.join(target_dir, new_name)
     with open(file_path, "wb") as f:

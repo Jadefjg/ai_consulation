@@ -9,7 +9,7 @@ from models.doctor_consult import DoctorConsult, DoctorReply, DoctorConsultFollo
 from models.appointment import Appointment, HealthRecord
 from models.article import Article, Notice
 from models.operations import DoctorSchedule, Notification, AuditLog
-from models.clinical import SymptomAssessment, AIConsultReview
+from models.clinical import SymptomAssessment, AIConsultReview, AIResponseEvaluation
 from models.p3 import FollowupPlan, FollowupTask, ChronicRecord, ChronicMetric, RiskAssessment, KnowledgeVersion
 
 __all__ = [
@@ -20,6 +20,6 @@ __all__ = [
     "Appointment", "HealthRecord",
     "DoctorSchedule", "Notification", "AuditLog",
     "Article", "Notice",
-    "SymptomAssessment", "AIConsultReview",
+    "SymptomAssessment", "AIConsultReview", "AIResponseEvaluation",
     "FollowupPlan", "FollowupTask", "ChronicRecord", "ChronicMetric", "RiskAssessment", "KnowledgeVersion",
 ]

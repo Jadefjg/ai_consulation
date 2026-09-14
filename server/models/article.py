@@ -1,5 +1,5 @@
 """文章与公告ORM模型"""
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, Index, func
 from db.session import Base
 
 
@@ -7,6 +7,9 @@ class Article(Base):
     """健康科普文章表"""
 
     __tablename__ = "t_article"
+    __table_args__ = (
+        Index("ix_article_status_category_id", "status", "category", "id"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
     title = Column(String(200), nullable=False, comment="文章标题")
@@ -24,6 +27,7 @@ class Notice(Base):
     """系统公告表"""
 
     __tablename__ = "t_notice"
+    __table_args__ = (Index("ix_notice_status_id", "status", "id"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
     title = Column(String(200), nullable=False, comment="公告标题")

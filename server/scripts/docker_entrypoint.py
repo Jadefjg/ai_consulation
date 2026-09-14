@@ -1,5 +1,6 @@
 """Docker 容器启动入口：等待依赖、建表、可选初始化图谱/知识库后启动 uvicorn"""
 import os
+import logging
 import sys
 import time
 from pathlib import Path
@@ -7,6 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
+
+from core.logging import configure_logging
+
+configure_logging(os.getenv("LOG_LEVEL", "INFO"))
+logger = logging.getLogger(__name__)
 
 
 def _truthy(name: str, default: str = "false") -> bool:
@@ -33,11 +39,11 @@ def wait_for_mysql(timeout: int = 120) -> None:
                 connect_timeout=3,
             )
             conn.close()
-            print("[entrypoint] MySQL 已就绪")
+            logger.info("MySQL is ready", extra={"event": "mysql_ready"})
             return
         except Exception as exc:
             last_error = exc
-            print(f"[entrypoint] 等待 MySQL ... {exc}")
+            logger.warning("waiting for MySQL: %s", exc, extra={"event": "mysql_wait"})
             time.sleep(2)
     raise SystemExit(f"[entrypoint] MySQL 等待超时: {last_error}")
 
@@ -57,11 +63,11 @@ def wait_for_neo4j(timeout: int = 180) -> None:
                 auth=(settings.neo4j_user, settings.neo4j_password),
             )
             driver.verify_connectivity()
-            print("[entrypoint] Neo4j 已就绪")
+            logger.info("Neo4j is ready", extra={"event": "neo4j_ready"})
             return
         except Exception as exc:
             last_error = exc
-            print(f"[entrypoint] 等待 Neo4j ... {exc}")
+            logger.warning("waiting for Neo4j: %s", exc, extra={"event": "neo4j_wait"})
             time.sleep(3)
         finally:
             if driver is not None:
@@ -70,12 +76,14 @@ def wait_for_neo4j(timeout: int = 180) -> None:
 
 
 def ensure_schema() -> None:
-    """根据 ORM 创建缺失数据表，并兼容扩容 password 字段"""
+    """通过 Alembic 升级数据库，并兼容历史密码字段长度。"""
+    from alembic import command
+    from alembic.config import Config
     from sqlalchemy import text
-    from db.session import engine, Base
-    import models  # noqa: F401
+    from db.session import engine
 
-    Base.metadata.create_all(bind=engine)
+    alembic_config = Config(str(ROOT / "alembic.ini"))
+    command.upgrade(alembic_config, "head")
     # 兼容旧库：明文密码列过短，哈希后需扩容
     alter_sql = [
         "ALTER TABLE t_admin MODIFY COLUMN password VARCHAR(255) NOT NULL COMMENT '密码'",
@@ -88,8 +96,8 @@ def ensure_schema() -> None:
             try:
                 conn.execute(text(sql))
             except Exception as exc:
-                print(f"[entrypoint] 跳过字段扩容: {exc}")
-    print("[entrypoint] 数据表检查完成")
+                logger.info("schema compatibility statement skipped: %s", exc, extra={"event": "schema_compat_skipped"})
+    logger.info("database schema checked", extra={"event": "schema_checked"})
 
 
 def main() -> None:
@@ -101,34 +109,35 @@ def main() -> None:
         try:
             wait_for_neo4j(timeout=60)
         except SystemExit as exc:
-            print(f"[entrypoint] Neo4j 暂不可用，图谱接口将降级: {exc}")
+            logger.warning("Neo4j unavailable; graph API degraded: %s", exc, extra={"event": "neo4j_degraded"})
     ensure_schema()
 
-    from scripts.seed_demo import seed_demo
-    seed_demo()
+    if _truthy("SEED_DEMO", "false"):
+        from scripts.seed_demo import seed_demo
+        seed_demo()
 
     from scripts.ensure_root import ensure_root_admin
     ensure_root_admin()
 
     if _truthy("INIT_GRAPH", "true"):
-        print("[entrypoint] 开始初始化知识图谱")
+        logger.info("initializing knowledge graph", extra={"event": "graph_init_started"})
         from scripts.init_graph import init_graph
         init_graph()
     else:
-        print("[entrypoint] 跳过知识图谱初始化（INIT_GRAPH=false）")
+        logger.info("knowledge graph initialization skipped", extra={"event": "graph_init_skipped"})
 
     if _truthy("INIT_KNOWLEDGE", "false"):
         from core.config import settings
         if not settings.openai_api_key:
-            print("[entrypoint] 未配置 OPENAI_API_KEY，跳过知识库向量化")
+            logger.warning("knowledge vectorization skipped: OPENAI_API_KEY missing", extra={"event": "knowledge_init_skipped"})
         else:
-            print("[entrypoint] 开始初始化知识库向量")
+            logger.info("initializing knowledge vectors", extra={"event": "knowledge_init_started"})
             from scripts.init_knowledge import init_knowledge
             init_knowledge()
     else:
-        print("[entrypoint] 跳过知识库向量化（INIT_KNOWLEDGE=false）")
+        logger.info("knowledge vector initialization skipped", extra={"event": "knowledge_init_skipped"})
 
-    print("[entrypoint] 启动 uvicorn")
+    logger.info("starting uvicorn", extra={"event": "uvicorn_start"})
     os.execvp(
         "uvicorn",
         [

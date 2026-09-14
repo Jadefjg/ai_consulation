@@ -8,6 +8,7 @@ from db.session import get_db
 from models.article import Notice
 from schemas.common import NoticeCreate
 from utils.helpers import format_datetime
+from services.redis_service import cache_delete_pattern, cache_get, cache_set
 
 router = APIRouter()
 
@@ -15,9 +16,14 @@ router = APIRouter()
 @router.get("/list")
 def list_notices(db: Session = Depends(get_db)):
     """公告列表（公开，仅已发布）"""
+    cached = cache_get("notices:list")
+    if cached is not None:
+        return cached
     items = db.query(Notice).filter(Notice.status == 1).order_by(Notice.id.desc()).all()
     data = [{"id": n.id, "title": n.title, "content": n.content, "create_time": format_datetime(n.create_time)} for n in items]
-    return success(data)
+    result = success(data)
+    cache_set("notices:list", result)
+    return result
 
 
 @router.get("/admin/list")
@@ -66,6 +72,7 @@ def create_notice(req: NoticeCreate, db: Session = Depends(get_db), _: CurrentUs
     notice = Notice(title=req.title, content=req.content, status=req.status)
     db.add(notice)
     db.commit()
+    cache_delete_pattern("notices:*")
     return success({"id": notice.id}, "创建成功")
 
 
@@ -84,6 +91,7 @@ def update_notice(
     notice.content = req.content
     notice.status = req.status
     db.commit()
+    cache_delete_pattern("notices:*")
     return success(None, "更新成功")
 
 
@@ -95,4 +103,5 @@ def delete_notice(notice_id: int, db: Session = Depends(get_db), _: CurrentUser 
         raise HTTPException(status_code=404, detail="公告不存在")
     db.delete(notice)
     db.commit()
+    cache_delete_pattern("notices:*")
     return success(None, "删除成功")

@@ -1,5 +1,5 @@
 """医生ORM模型"""
-from sqlalchemy import Column, Integer, String, Text, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, CheckConstraint, func
 from db.session import Base
 
 
@@ -7,12 +7,13 @@ class Doctor(Base):
     """医生表"""
 
     __tablename__ = "t_doctor"
+    __table_args__ = (CheckConstraint("status IN (0, 1)", name="ck_doctor_status"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="主键ID")
     username = Column(String(50), unique=True, nullable=False, comment="登录账号")
     password = Column(String(255), nullable=False, comment="密码")
     real_name = Column(String(50), nullable=False, comment="医生姓名")
-    department_id = Column(Integer, comment="所属科室ID")
+    department_id = Column(Integer, ForeignKey("t_department.id", ondelete="SET NULL"), comment="所属科室ID")
     title = Column(String(50), comment="职称")
     specialty = Column(String(255), comment="擅长领域")
     introduction = Column(Text, comment="个人简介")

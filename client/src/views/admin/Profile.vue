@@ -1,4 +1,4 @@
-<script setup>
+<script setup lang="ts">
 import ProfilePanel from '@/components/ProfilePanel.vue'
 </script>
 

@@ -1,12 +1,13 @@
 """P3 随访、慢病、风险与知识库审核模型。"""
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, func
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, CheckConstraint, UniqueConstraint, func
 from db.session import Base
 
 class FollowupPlan(Base):
     __tablename__ = "t_followup_plan"
+    __table_args__ = (CheckConstraint("frequency_days > 0", name="ck_followup_frequency"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
-    doctor_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("t_user.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_id = Column(Integer, ForeignKey("t_doctor.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(200), nullable=False)
     frequency_days = Column(Integer, default=30, nullable=False)
     next_date = Column(Date, nullable=False)
@@ -17,7 +18,7 @@ class FollowupPlan(Base):
 class FollowupTask(Base):
     __tablename__ = "t_followup_task"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    plan_id = Column(Integer, nullable=False, index=True)
+    plan_id = Column(Integer, ForeignKey("t_followup_plan.id", ondelete="CASCADE"), nullable=False, index=True)
     due_date = Column(Date, nullable=False)
     response = Column(Text)
     status = Column(Integer, default=0, nullable=False, comment="0待完成1已完成2逾期")
@@ -26,8 +27,8 @@ class FollowupTask(Base):
 class ChronicRecord(Base):
     __tablename__ = "t_chronic_record"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
-    doctor_id = Column(Integer)
+    user_id = Column(Integer, ForeignKey("t_user.id", ondelete="CASCADE"), nullable=False, index=True)
+    doctor_id = Column(Integer, ForeignKey("t_doctor.id", ondelete="SET NULL"))
     disease = Column(String(100), nullable=False)
     target_json = Column(Text)
     status = Column(Integer, default=1, nullable=False)
@@ -36,7 +37,7 @@ class ChronicRecord(Base):
 class ChronicMetric(Base):
     __tablename__ = "t_chronic_metric"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chronic_id = Column(Integer, nullable=False, index=True)
+    chronic_id = Column(Integer, ForeignKey("t_chronic_record.id", ondelete="CASCADE"), nullable=False, index=True)
     metric = Column(String(50), nullable=False)
     value = Column(String(100), nullable=False)
     measured_at = Column(DateTime, server_default=func.now())
@@ -44,7 +45,7 @@ class ChronicMetric(Base):
 class RiskAssessment(Base):
     __tablename__ = "t_risk_assessment"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("t_user.id", ondelete="CASCADE"), nullable=False, index=True)
     source = Column(String(30), default="rule")
     score = Column(Integer, nullable=False)
     level = Column(String(20), nullable=False)
@@ -53,8 +54,9 @@ class RiskAssessment(Base):
 
 class KnowledgeVersion(Base):
     __tablename__ = "t_knowledge_version"
+    __table_args__ = (UniqueConstraint("file_id", "version", name="uq_knowledge_file_version"),)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    file_id = Column(Integer, nullable=False, index=True)
+    file_id = Column(Integer, ForeignKey("t_knowledge_file.id", ondelete="CASCADE"), nullable=False, index=True)
     version = Column(Integer, nullable=False)
     content_hash = Column(String(64), nullable=False)
     status = Column(Integer, default=0, nullable=False, comment="0待审核1已发布2驳回")

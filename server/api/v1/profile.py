@@ -8,11 +8,11 @@ from core.security import verify_password, hash_password
 from db.session import get_db
 from schemas.common import ProfileUpdateRequest, PasswordChangeRequest
 from utils.helpers import save_upload_file, format_datetime
+from utils.file_security import UploadSecurityError, validate_avatar
 
 router = APIRouter()
 
 _AVATAR_MAX_BYTES = 2 * 1024 * 1024
-_AVATAR_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 @router.get("/info")
@@ -86,16 +86,16 @@ def change_password(req: PasswordChangeRequest, db: Session = Depends(get_db), c
 @router.post("/avatar")
 async def upload_avatar(file: UploadFile = File(...), db: Session = Depends(get_db), current: CurrentUser = Depends(get_current_user)):
     """上传头像"""
-    import os
     filename = file.filename or ""
-    ext = os.path.splitext(filename)[1].lower()
-    if ext not in _AVATAR_EXTS:
-        raise HTTPException(status_code=400, detail="头像仅支持 jpg/png/gif/webp")
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="文件内容为空")
     if len(content) > _AVATAR_MAX_BYTES:
         raise HTTPException(status_code=400, detail="头像大小不能超过2MB")
+    try:
+        validate_avatar(filename, content)
+    except UploadSecurityError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     rel_path = save_upload_file(content, filename, "avatar")
     current.obj.avatar = rel_path
     db.commit()
