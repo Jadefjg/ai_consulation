@@ -43,10 +43,20 @@ def create_chronic(req: ChronicCreate, db: Session = Depends(get_db), current: C
     row = ChronicRecord(user_id=current.user_id, disease=req.disease.strip(), target_json=json.dumps(req.target, ensure_ascii=False) if req.target is not None else None)
     db.add(row); db.commit(); db.refresh(row); return success({"id": row.id}, "慢病档案已创建")
 
+
+@router.get("/chronic")
+def list_chronic(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
+    """获取当前用户自己的慢病档案，供指标记录选择。"""
+    rows = db.query(ChronicRecord).filter(
+        ChronicRecord.user_id == current.user_id,
+        ChronicRecord.status == 1,
+    ).order_by(ChronicRecord.id.desc()).all()
+    return success([{"id": row.id, "disease": row.disease, "status": row.status} for row in rows])
+
 @router.post("/chronic/{chronic_id}/metrics")
 def add_metric(chronic_id: int, req: MetricCreate, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
     row = db.query(ChronicRecord).filter(ChronicRecord.id == chronic_id, ChronicRecord.user_id == current.user_id).first()
-    if not row: raise HTTPException(status_code=404, detail="慢病档案不存在")
+    if not row: raise HTTPException(status_code=404, detail="未找到属于当前用户的慢病档案，请先创建或选择正确的档案")
     db.add(ChronicMetric(chronic_id=chronic_id, metric=req.metric.strip(), value=req.value.strip())); db.commit(); return success(None, "指标已记录")
 
 @router.post("/risk/assess")
