@@ -3,7 +3,11 @@ import json
 import logging
 import os
 import sys
+import time
 from pathlib import Path
+
+from redis import Redis
+from redis.exceptions import RedisError, TimeoutError as RedisTimeoutError
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -14,7 +18,6 @@ from core.logging import configure_logging
 from db.session import SessionLocal
 from models.knowledge import KnowledgeFile
 from services.rag_service import get_rag_service
-from services.redis_service import get_redis
 
 configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
@@ -49,12 +52,25 @@ def process_job(payload: str) -> None:
 
 
 def main() -> None:
-    client = get_redis()
+    # BLPOP 会阻塞等待；不能复用业务 Redis 客户端的 3s socket_timeout
+    client = Redis.from_url(
+        settings.redis_url,
+        decode_responses=True,
+        socket_connect_timeout=5,
+        socket_timeout=None,
+        health_check_interval=30,
+    )
     logger.info("vector worker started", extra={"event": "vector_worker_started"})
     while True:
-        item = client.blpop(settings.vector_queue_name, timeout=30)
-        if item:
-            process_job(item[1])
+        try:
+            item = client.blpop(settings.vector_queue_name, timeout=30)
+            if item:
+                process_job(item[1])
+        except RedisTimeoutError:
+            continue
+        except RedisError:
+            logger.exception("vector worker redis error", extra={"event": "vector_worker_redis_error"})
+            time.sleep(2)
 
 
 if __name__ == "__main__":

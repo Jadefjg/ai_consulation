@@ -106,10 +106,10 @@ def main() -> None:
     if _truthy("NEO4J_REQUIRED", "true"):
         wait_for_neo4j()
     else:
-        try:
-            wait_for_neo4j(timeout=60)
-        except SystemExit as exc:
-            logger.warning("Neo4j unavailable; graph API degraded: %s", exc, extra={"event": "neo4j_degraded"})
+        logger.warning(
+            "NEO4J_REQUIRED=false; skip Neo4j wait, graph API degraded",
+            extra={"event": "neo4j_skipped"},
+        )
     ensure_schema()
 
     if _truthy("SEED_DEMO", "false"):

@@ -215,8 +215,12 @@ services:
     volumes:
       - uploads_data:/data/uploads
       - chroma_data:/data/chroma_db
+      - ./server/scripts/vector_worker.py:/app/scripts/vector_worker.py:ro
     mem_limit: ${VECTOR_WORKER_MEM_LIMIT:-1g}
     logging: *default-logging
+    networks:
+      - default
+      - shared-infra
 
   ai-service:
     build: ./server
@@ -231,6 +235,7 @@ services:
       OPENAI_BASE_URL: ${DOCKER_OPENAI_BASE_URL:-http://host.docker.internal:11434/v1}
       LLM_MODEL: ${LLM_MODEL:-qwen3.6-plus}
     command: ["uvicorn", "services.ai_app:app", "--host", "0.0.0.0", "--port", "8010"]
+    mem_limit: ${AI_SERVICE_MEM_LIMIT:-256m}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8010/health/ready', timeout=5)"]
       interval: 15s
@@ -256,7 +261,11 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?请设置 JWT_SECRET_KEY}
       NEO4J_REQUIRED: "false"
     command: ["python", "scripts/scheduler_worker.py"]
+    mem_limit: ${SCHEDULER_WORKER_MEM_LIMIT:-256m}
     logging: *default-logging
+    networks:
+      - default
+      - shared-infra
 
   prometheus:
     profiles: ["monitoring"]
