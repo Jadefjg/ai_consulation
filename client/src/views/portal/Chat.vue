@@ -51,6 +51,7 @@ async function loadMessages(sessionId) {
         ...m,
         id: m.id || `hist-${m.id}`,
         references,
+        safety: m.safety || null,
         html: m.role === 'assistant' ? renderAssistantHtml(m.content) : m.content,
       }
     })
@@ -66,11 +67,26 @@ function newSession() {
   messages.value = []
 }
 
+function usePrompt(prompt) {
+  inputText.value = prompt
+  sendMessage()
+}
+
 /** 滚动到底部 */
 async function scrollToBottom() {
   await nextTick()
   if (chatContainer.value) {
     chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  }
+}
+
+async function transferToDoctor() {
+  if (!currentSessionId.value) return
+  try {
+    await request.post('/clinical/transfer', { session_id: currentSessionId.value })
+    ElMessage.success('已提交人工问诊，医生审核后会通知您')
+  } catch {
+    ElMessage.error('转人工失败，请稍后重试')
   }
 }
 
@@ -138,6 +154,8 @@ async function sendMessage() {
             } else if (parsed.type === 'done') {
               assistantMsg.references = parsed.references || []
               assistantMsg.graph = parsed.graph || []
+            } else if (parsed.type === 'safety') {
+              assistantMsg.safety = parsed
             } else if (parsed.type === 'error') {
               throw new Error(parsed.message || 'AI 回复失败')
             }
@@ -187,6 +205,9 @@ onMounted(() => {
         >
           <span class="session-title">{{ s.title || '新对话' }}</span>
           <span class="session-time">{{ formatDateTime(s.create_time) }}</span>
+          <el-tag v-if="s.human_review" size="small" :type="s.human_review.status === 0 ? 'warning' : 'success'">
+            {{ s.human_review.status_text }}
+          </el-tag>
         </div>
         <el-empty v-if="!sessions.length" description="暂无对话" :image-size="60" />
       </div>
@@ -198,6 +219,11 @@ onMounted(() => {
           <span class="welcome-icon">🤖</span>
           <h2>AI 智能问诊助手</h2>
           <p>描述您的症状，我将为您提供初步的健康建议</p>
+          <div class="quick-prompts">
+            <el-button size="small" @click="usePrompt('我有胸痛和呼吸困难，请告诉我现在应该怎么办')">急症判断</el-button>
+            <el-button size="small" @click="usePrompt('请帮我分析最近的症状，并给出建议就诊科室')">症状分析</el-button>
+            <el-button size="small" @click="usePrompt('我想把本次问诊转给医生审核')">医生复核</el-button>
+          </div>
         </div>
         <div
           v-for="(msg, idx) in messages"
@@ -209,6 +235,11 @@ onMounted(() => {
           <div class="message-bubble">
             <div v-if="msg.role === 'assistant'" class="markdown-body" v-html="msg.html"></div>
             <div v-else>{{ msg.content }}</div>
+            <div v-if="msg.role === 'assistant' && msg.safety && msg.safety.action !== 'allow'" class="safety-notice" :class="`safety-${msg.safety.level}`">
+              <div class="safety-title">{{ msg.safety.level === 'emergency' ? '紧急就医提示' : '建议医生复核' }}</div>
+              <div class="safety-text">{{ msg.safety.level === 'emergency' ? '当前描述可能涉及急症，请立即拨打 120 或前往最近急诊，不要等待线上回复。' : '该回答涉及高风险信息，建议联系医生进行确认后再采取行动。' }}</div>
+              <el-button v-if="currentSessionId" link type="primary" size="small" @click="transferToDoctor">转人工问诊</el-button>
+            </div>
             <div v-if="msg.role === 'assistant' && msg.references?.length" class="msg-refs">
               <div class="refs-title">参考来源</div>
               <div v-for="(ref, rIdx) in msg.references" :key="rIdx" class="ref-item">
@@ -363,6 +394,19 @@ onMounted(() => {
   border-bottom-left-radius: 4px;
 }
 
+.safety-notice {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border-left: 4px solid #e6a23c;
+  background: #fff7e6;
+  color: #7a4b00;
+  font-size: 12px;
+}
+.safety-emergency { border-left-color: #f56c6c; background: #fff1f0; color: #8b1e1e; }
+.safety-title { font-weight: 700; margin-bottom: 4px; }
+.safety-text { line-height: 1.5; margin-bottom: 3px; }
+
 .chat-input {
   display: flex;
   gap: 12px;
@@ -370,6 +414,8 @@ onMounted(() => {
   border-top: 1px solid #f0f0f0;
   align-items: flex-end;
 }
+
+.quick-prompts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
 
 .chat-input .el-textarea {
   flex: 1;

@@ -79,6 +79,16 @@ async function viewDisease(name) {
     diseaseDetail.value = null
   }
 }
+
+async function saveAssessment() {
+  if (!symptoms.value.length) return
+  try {
+    await request.post('/clinical/symptoms', { symptoms: symptoms.value, severity: 1 })
+    ElMessage.success('症状已保存到健康记录，可供后续医生查看')
+  } catch {
+    ElMessage.error('症状保存失败，请稍后重试')
+  }
+}
 </script>
 
 <template>
@@ -97,6 +107,7 @@ async function viewDisease(name) {
         <el-button type="primary" class="gradient-btn" :loading="loading" @click="handleInfer">
           开始推理
         </el-button>
+        <el-button :disabled="!symptoms.length" @click="saveAssessment">保存症状</el-button>
       </div>
       <div class="symptom-tags">
         <el-tag

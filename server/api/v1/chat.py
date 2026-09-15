@@ -49,7 +49,23 @@ def _needs_emergency_notice(message: str) -> bool:
 def list_sessions(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
     """获取用户会话列表"""
     items = db.query(ConsultSession).filter(ConsultSession.user_id == current.user_id).order_by(ConsultSession.update_time.desc()).all()
-    data = [{"id": s.id, "title": s.title, "message_count": s.message_count, "create_time": format_datetime(s.create_time)} for s in items]
+    review_map = {
+        r.session_id: r for r in db.query(AIConsultReview).filter(
+            AIConsultReview.session_id.in_([s.id for s in items])
+        ).all()
+    } if items else {}
+    data = []
+    for s in items:
+        review = review_map.get(s.id)
+        data.append({
+            "id": s.id, "title": s.title, "message_count": s.message_count,
+            "create_time": format_datetime(s.create_time),
+            "human_review": {
+                "id": review.id,
+                "status": review.review_status,
+                "status_text": {0: "待医生审核", 1: "已审核通过", 2: "医生已修订"}.get(review.review_status, "未知"),
+            } if review else None,
+        })
     return success(data)
 
 
@@ -63,12 +79,36 @@ def get_messages(session_id: int, db: Session = Depends(get_db), current: Curren
     if not session:
         raise HTTPException(status_code=404, detail="会话不存在")
     msgs = db.query(ConsultMessage).filter(ConsultMessage.session_id == session_id).order_by(ConsultMessage.id).all()
-    data = [{
-        "id": m.id, "role": m.role, "content": m.content,
-        "references_json": m.references_json, "graph_json": m.graph_json,
-        "delivery_status": m.delivery_status, "error_message": m.error_message,
-        "create_time": format_datetime(m.create_time),
-    } for m in msgs]
+    evaluations = {
+        item.message_id: item
+        for item in db.query(AIResponseEvaluation).filter(
+            AIResponseEvaluation.message_id.in_([m.id for m in msgs])
+        ).all()
+    } if msgs else {}
+    data = []
+    for m in msgs:
+        evaluation = evaluations.get(m.id)
+        safety = None
+        if evaluation:
+            reasons = []
+            try:
+                reasons = json.loads(evaluation.details_json or "{}").get("reasons", [])
+            except (TypeError, ValueError):
+                reasons = []
+            safety = {
+                "level": evaluation.safety_level,
+                "action": evaluation.safety_action,
+                "reasons": reasons,
+                "requires_human_review": evaluation.safety_action != "allow",
+                "groundedness": evaluation.groundedness,
+                "citation_coverage": evaluation.citation_coverage,
+            }
+        data.append({
+            "id": m.id, "role": m.role, "content": m.content,
+            "references_json": m.references_json, "graph_json": m.graph_json,
+            "delivery_status": m.delivery_status, "error_message": m.error_message,
+            "safety": safety, "create_time": format_datetime(m.create_time),
+        })
     return success(data)
 
 
@@ -186,6 +226,10 @@ async def chat_send(req: ChatRequest, request: Request, db: Session = Depends(ge
                     disclaimer_content = f"\n\n{DISCLAIMER}"
                     full_content += disclaimer_content
             evaluation = evaluate_answer(full_content, references, DISCLAIMER)
+            # 将最终审核结果作为独立 SSE 事件发送给前端，避免客户端只能看到文本而
+            # 无法区分普通健康建议、需医生复核和急症升级。
+            if delivery_status != "cancelled":
+                yield f"data: {json.dumps({'type': 'safety', **safety_event(output_safety), 'groundedness': evaluation.groundedness, 'citation_coverage': evaluation.citation_coverage}, ensure_ascii=False)}\n\n"
             logger.info(
                 "AI answer evaluated: safety=%s metrics=%s",
                 output_safety.level,

@@ -66,6 +66,23 @@ def transfer_ai_to_doctor(req: AITransferCreate, db: Session = Depends(get_db), 
     return success({"consult_id": consult.id, "review_id": review.id}, "已转人工问诊")
 
 
+@router.get("/my-reviews")
+def my_ai_reviews(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
+    """患者查看 AI 问诊的医生审核结果，补齐转人工后的反馈闭环。"""
+    rows = db.query(AIConsultReview).filter(
+        AIConsultReview.user_id == current.user_id
+    ).order_by(AIConsultReview.id.desc()).all()
+    return success([{
+        "id": row.id,
+        "session_id": row.session_id,
+        "review_status": row.review_status,
+        "status_text": {0: "待医生审核", 1: "已审核通过", 2: "医生已修订"}.get(row.review_status, "未知"),
+        "doctor_comment": row.doctor_comment,
+        "record_id": row.record_id,
+        "review_time": format_datetime(row.review_time),
+    } for row in rows])
+
+
 @router.get("/doctor/reviews")
 def doctor_reviews(db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("doctor"))):
     rows = db.query(AIConsultReview).join(DoctorConsult, DoctorConsult.id == AIConsultReview.consult_id).filter(DoctorConsult.doctor_id == current.user_id).order_by(AIConsultReview.id.desc()).all()
