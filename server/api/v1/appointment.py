@@ -38,23 +38,26 @@ def create_appointment(req: AppointmentCreate, db: Session = Depends(get_db), cu
     if doctor.department_id and doctor.department_id != req.department_id:
         raise HTTPException(status_code=400, detail="医生与所选科室不匹配")
     # 患者同一日期时段只能保留一个有效预约，避免时间冲突和爽约占号。
-    patient_conflict = db.query(Appointment.id).filter(
+    patient_conflict = db.query(Appointment).filter(
         Appointment.user_id == current.user_id,
         Appointment.visit_date == req.visit_date,
         Appointment.time_slot == req.time_slot,
-        Appointment.status.in_((0, 1, 2)),
+        Appointment.status.in_((0, 1)),
     ).first()
     if patient_conflict:
-        raise HTTPException(status_code=400, detail="您在该日期时段已有有效预约")
-    # 同一医生同一时段只能接诊一位患者。已取消的预约不再占用名额。
-    occupied = db.query(Appointment.id).filter(
-        Appointment.doctor_id == req.doctor_id,
-        Appointment.visit_date == req.visit_date,
-        Appointment.time_slot == req.time_slot,
-        Appointment.status.in_((0, 1, 2)),
-    ).first()
-    if occupied:
-        raise HTTPException(status_code=400, detail="该医生此日期时段已被预约")
+        conflict_doctor = db.query(Doctor).filter(Doctor.id == patient_conflict.doctor_id).first()
+        doctor_name = conflict_doctor.real_name or conflict_doctor.username if conflict_doctor else "其他医生"
+        if patient_conflict.doctor_id == req.doctor_id:
+            detail = (
+                f"您已预约 {doctor_name}（{format_date(req.visit_date)} {req.time_slot}），"
+                "不能重复预约；如需改约，请先取消原预约"
+            )
+        else:
+            detail = (
+                f"您在 {format_date(req.visit_date)} {req.time_slot} 已有 {doctor_name} 的预约，"
+                "该时段不能同时预约其他医生"
+            )
+        raise HTTPException(status_code=400, detail=detail)
     schedule = db.query(DoctorSchedule).filter_by(
         doctor_id=req.doctor_id, work_date=req.visit_date, time_slot=req.time_slot, status=1
     ).first()
@@ -74,6 +77,50 @@ def create_appointment(req: AppointmentCreate, db: Session = Depends(get_db), cu
     db.add(appt)
     db.commit()
     return success({"id": appt.id}, "预约成功")
+
+
+@router.get("/available-schedules")
+def available_schedules(
+    doctor_id: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    current: CurrentUser = Depends(require_roles("user")),
+):
+    """获取医生未来仍有余量的可预约排班。"""
+    doctor = db.query(Doctor.id).filter(Doctor.id == doctor_id, Doctor.status == 1).first()
+    if not doctor:
+        raise HTTPException(status_code=400, detail="医生不存在或已停用")
+
+    schedules = db.query(DoctorSchedule).filter(
+        DoctorSchedule.doctor_id == doctor_id,
+        DoctorSchedule.work_date >= date.today(),
+        DoctorSchedule.status == 1,
+    ).order_by(DoctorSchedule.work_date, DoctorSchedule.id).all()
+
+    data = []
+    for schedule in schedules:
+        used = db.query(Appointment.id).filter(
+            Appointment.doctor_id == doctor_id,
+            Appointment.visit_date == schedule.work_date,
+            Appointment.time_slot == schedule.time_slot,
+            Appointment.status.in_((0, 1, 2)),
+        ).count()
+        remaining = max(schedule.capacity - used, 0)
+        if remaining:
+            conflict = db.query(Appointment.id).filter(
+                Appointment.user_id == current.user_id,
+                Appointment.visit_date == schedule.work_date,
+                Appointment.time_slot == schedule.time_slot,
+                Appointment.status.in_((0, 1)),
+            ).first()
+            data.append({
+                "date": format_date(schedule.work_date),
+                "time_slot": schedule.time_slot,
+                "capacity": schedule.capacity,
+                "remaining": remaining,
+                "bookable": conflict is None,
+                "unavailable_reason": "您在该日期时段已有待处理预约" if conflict else None,
+            })
+    return success(data)
 
 
 @router.get("/my")

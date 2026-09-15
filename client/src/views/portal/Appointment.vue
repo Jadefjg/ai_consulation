@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '@/utils/request'
 import { formatDateTime, parseListData } from '@/utils/format'
@@ -7,17 +7,28 @@ import { formatDateTime, parseListData } from '@/utils/format'
 const list = ref([])
 const departments = ref([])
 const doctors = ref([])
+const availableSchedules = ref([])
 const loading = ref(false)
+const scheduleLoading = ref(false)
 const showDialog = ref(false)
 
-/** 预约时段选项 */
-const timeSlotOptions = ['上午', '下午', '晚上']
+const availableDates = computed(() => new Set(availableSchedules.value.map(item => item.date)))
+const timeSlotOptions = computed(() => availableSchedules.value.filter(
+  item => item.date === form.visit_date,
+))
+const selectedDateConflict = computed(() => (
+  timeSlotOptions.value.length > 0 && timeSlotOptions.value.every(item => !item.bookable)
+))
 
-/** 禁止选择今天之前的日期 */
-function disablePastDate(date) {
+/** 仅允许选择当前医生存在剩余号源的日期 */
+function disableUnavailableDate(date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  return date < today
+  if (date < today) return true
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return !availableDates.value.has(`${year}-${month}-${day}`)
 }
 
 /** 预约状态映射 */
@@ -44,6 +55,7 @@ function resetForm() {
   form.visit_date = ''
   form.time_slot = ''
   form.remark = ''
+  availableSchedules.value = []
 }
 
 /** 加载预约列表 */
@@ -76,6 +88,25 @@ async function loadDoctors(departmentId) {
     doctors.value = parseListData(docRes)
   } catch {
     doctors.value = []
+  }
+}
+
+/** 加载医生真实可用排班及剩余号源 */
+async function loadAvailableSchedules(doctorId) {
+  availableSchedules.value = []
+  form.visit_date = ''
+  form.time_slot = ''
+  if (!doctorId) return
+  scheduleLoading.value = true
+  try {
+    const res = await request.get('/appointments/available-schedules', {
+      params: { doctor_id: doctorId },
+    })
+    availableSchedules.value = res.data || []
+  } catch {
+    availableSchedules.value = []
+  } finally {
+    scheduleLoading.value = false
   }
 }
 
@@ -119,8 +150,12 @@ async function handleCreate() {
 /** 科室变更时重新加载对应医生 */
 watch(() => form.department_id, (val) => {
   form.doctor_id = ''
+  availableSchedules.value = []
   loadDoctors(val || undefined)
 })
+
+watch(() => form.doctor_id, (val) => loadAvailableSchedules(val || undefined))
+watch(() => form.visit_date, () => { form.time_slot = '' })
 
 onMounted(() => {
   loadList()
@@ -182,14 +217,28 @@ onMounted(() => {
             v-model="form.visit_date"
             type="date"
             value-format="YYYY-MM-DD"
-            :disabled-date="disablePastDate"
+            :disabled="!form.doctor_id || scheduleLoading"
+            :disabled-date="disableUnavailableDate"
+            placeholder="请选择有号日期"
             style="width:100%"
           />
+          <div v-if="form.doctor_id && !scheduleLoading && !availableSchedules.length" class="schedule-hint">
+            该医生暂无可预约排班
+          </div>
         </el-form-item>
         <el-form-item label="时段">
-          <el-select v-model="form.time_slot" placeholder="选择时段" style="width:100%">
-            <el-option v-for="slot in timeSlotOptions" :key="slot" :label="slot" :value="slot" />
+          <el-select v-model="form.time_slot" :disabled="!form.visit_date" placeholder="选择时段" style="width:100%">
+            <el-option
+              v-for="slot in timeSlotOptions"
+              :key="slot.time_slot"
+              :label="slot.bookable ? `${slot.time_slot}（剩余 ${slot.remaining}）` : `${slot.time_slot}（您已有预约）`"
+              :value="slot.time_slot"
+              :disabled="!slot.bookable"
+            />
           </el-select>
+          <div v-if="selectedDateConflict" class="schedule-hint">
+            您在该日期的可用时段已有待处理预约；如需改约，请先在预约列表中取消原预约。
+          </div>
         </el-form-item>
         <el-form-item label="原因">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请简要描述预约原因" />
@@ -213,5 +262,11 @@ onMounted(() => {
 
 .text-muted {
   color: #c0c4cc;
+}
+
+.schedule-hint {
+  color: #e6a23c;
+  font-size: 12px;
+  line-height: 20px;
 }
 </style>

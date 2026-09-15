@@ -13,7 +13,7 @@ from core.config import settings
 from core.response import success, page_result
 from db.session import get_db
 from models.consult import ConsultSession, ConsultMessage
-from models.clinical import AIResponseEvaluation
+from models.clinical import AIConsultReview, AIResponseEvaluation
 from models.user import User
 from schemas.common import ChatRequest
 from services.rag_service import get_rag_service

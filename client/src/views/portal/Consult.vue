@@ -7,6 +7,7 @@ import { formatDateTime, parseListData } from '@/utils/format'
 const list = ref([])
 const doctors = ref([])
 const loading = ref(false)
+const reviews = ref([])
 const showDialog = ref(false)
 
 /** 新建咨询表单 */
@@ -39,6 +40,13 @@ async function loadDoctors() {
   }
 }
 
+async function loadReviews() {
+  try {
+    const res = await request.get('/clinical/my-reviews')
+    reviews.value = res.data || []
+  } catch { reviews.value = [] }
+}
+
 /** 提交咨询 */
 async function handleCreate() {
   if (!form.title || !form.content) {
@@ -58,8 +66,9 @@ async function handleCreate() {
 }
 
 onMounted(() => {
-  loadList()
+    loadList()
   loadDoctors()
+  loadReviews()
 })
 </script>
 
@@ -87,6 +96,19 @@ onMounted(() => {
           <template #default="{ row }">{{ row.replies?.length ? row.replies[row.replies.length - 1].content : '' }}</template>
         </el-table-column>
       </el-table>
+    </div>
+
+    <div v-if="reviews.length" class="modern-card review-card">
+      <div class="review-header"><h3>AI问诊医生审核</h3><el-button link type="primary" @click="loadReviews">刷新</el-button></div>
+      <el-timeline>
+        <el-timeline-item v-for="item in reviews" :key="item.id" :timestamp="formatDateTime(item.review_time)" placement="top">
+          <div class="review-item">
+            <el-tag :type="item.review_status === 0 ? 'warning' : 'success'">{{ item.status_text }}</el-tag>
+            <span v-if="item.doctor_comment" class="review-comment">{{ item.doctor_comment }}</span>
+            <el-button v-if="item.record_id" link type="primary" @click="$router.push('/portal/records')">查看健康档案</el-button>
+          </div>
+        </el-timeline-item>
+      </el-timeline>
     </div>
 
     <el-dialog v-model="showDialog" title="发起咨询" width="520px">
@@ -118,4 +140,9 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
 }
+.review-card { margin-top: 20px; }
+.review-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.review-header h3 { margin:0; font-size:16px; }
+.review-item { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.review-comment { color:var(--text-secondary); font-size:13px; }
 </style>
