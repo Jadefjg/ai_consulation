@@ -8,3 +8,6 @@ server/chroma_db/
 *.log
 
 ali.txt
+
+微信小程序上架指南.md
+域名部署文档.md

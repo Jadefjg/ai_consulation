@@ -99,12 +99,20 @@ EMBEDDING_MODEL = _env("EMBEDDING_MODEL", "nomic-embed-text")
 EMBEDDING_DIMENSIONS = _env_int("EMBEDDING_DIMENSIONS", 0)
 EMBEDDING_BATCH_SIZE = _env_int("EMBEDDING_BATCH_SIZE", 10)
 
-# CORS 仅允许显式配置的前端来源；本地默认覆盖常用开发端口。
+# CORS 仅允许显式配置的前端来源；本地默认覆盖 PC 与 H5 开发端口。
 CORS_ORIGINS = [
     item.strip().rstrip("/")
-    for item in _env("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    for item in _env(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174",
+    ).split(",")
     if item.strip()
 ]
+
+# 微信小程序（患者端）。生产必须配置；开发可用 WECHAT_DEV_LOGIN 走本地模拟。
+WECHAT_MINI_APPID = _env("WECHAT_MINI_APPID")
+WECHAT_MINI_SECRET = _env("WECHAT_MINI_SECRET")
+WECHAT_DEV_LOGIN = _env_bool("WECHAT_DEV_LOGIN", APP_ENV not in {"production", "prod"})
 
 # 本地 Ollama 不校验密钥，但 OpenAI SDK 要求 api_key 非空
 _local_llm = any(token in OPENAI_BASE_URL.lower() for token in ("127.0.0.1", "localhost", "host.docker.internal", "11434", "ollama"))
@@ -218,6 +226,9 @@ class Settings:
     ai_service_url: str = AI_SERVICE_URL
     otel_exporter_otlp_endpoint: str = OTEL_EXPORTER_OTLP_ENDPOINT
     otel_service_name: str = OTEL_SERVICE_NAME
+    wechat_mini_appid: str = WECHAT_MINI_APPID
+    wechat_mini_secret: str = WECHAT_MINI_SECRET
+    wechat_dev_login: bool = WECHAT_DEV_LOGIN
 
 
 settings = Settings()

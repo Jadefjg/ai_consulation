@@ -1,0 +1,66 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" }
+    },
+    {
+      "path": "pages/index/index",
+      "style": { "navigationBarTitleText": "智能问诊" }
+    },
+    {
+      "path": "pages/chat/index",
+      "style": { "navigationBarTitleText": "AI问诊" }
+    },
+    {
+      "path": "pages/articles/index",
+      "style": { "navigationBarTitleText": "健康资讯" }
+    },
+    {
+      "path": "pages/article-detail/index",
+      "style": { "navigationBarTitleText": "资讯详情" }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": { "navigationBarTitleText": "我的" }
+    },
+    {
+      "path": "pages/appointment/index",
+      "style": { "navigationBarTitleText": "预约挂号" }
+    },
+    {
+      "path": "pages/consult/index",
+      "style": { "navigationBarTitleText": "在线咨询" }
+    },
+    {
+      "path": "pages/records/index",
+      "style": { "navigationBarTitleText": "健康档案" }
+    },
+    {
+      "path": "pages/health/index",
+      "style": { "navigationBarTitleText": "健康管理" }
+    },
+    {
+      "path": "pages/notice-detail/index",
+      "style": { "navigationBarTitleText": "公告详情" }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "AI智能问诊",
+    "navigationBarBackgroundColor": "#b56bc4",
+    "backgroundColor": "#f5f6fa"
+  },
+  "tabBar": {
+    "color": "#8a8f99",
+    "selectedColor": "#b56bc4",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/index/index", "text": "首页" },
+      { "pagePath": "pages/chat/index", "text": "问诊" },
+      { "pagePath": "pages/articles/index", "text": "资讯" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  }
+}

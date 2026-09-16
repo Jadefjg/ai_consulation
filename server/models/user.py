@@ -17,6 +17,8 @@ class User(Base):
     phone = Column(String(20), comment="手机号")
     avatar = Column(String(255), comment="头像路径")
     allergy_history = Column(Text, comment="过敏史")
+    wx_openid = Column(String(64), unique=True, nullable=True, comment="微信小程序 openid")
+    wx_unionid = Column(String(64), nullable=True, index=True, comment="微信 unionid")
     status = Column(Integer, default=1, comment="状态")
     create_time = Column(DateTime, server_default=func.now(), comment="创建时间")
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间")

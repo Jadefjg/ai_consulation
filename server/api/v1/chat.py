@@ -113,8 +113,14 @@ def get_messages(session_id: int, db: Session = Depends(get_db), current: Curren
 
 
 @router.post("/send")
-async def chat_send(req: ChatRequest, request: Request, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
-    """AI问诊 - SSE流式回复"""
+async def chat_send(
+    req: ChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current: CurrentUser = Depends(require_roles("user")),
+    stream: bool = Query(True, description="true 返回 SSE；false 返回完整 JSON（小程序兜底）"),
+):
+    """AI问诊 - 默认 SSE 流式；stream=0 时一次返回完整 JSON。"""
     if req.session_id:
         session = db.query(ConsultSession).filter(
             ConsultSession.id == req.session_id,
@@ -262,6 +268,39 @@ async def chat_send(req: ChatRequest, request: Request, db: Session = Depends(ge
                 logger.exception("Failed to persist AI response state: session_id=%s", session_id)
             finally:
                 sdb.close()
+
+    if not stream:
+        collected = {
+            "session_id": session_id,
+            "content": "",
+            "references": [],
+            "graph": [],
+            "safety": None,
+            "error": None,
+        }
+        async for chunk in event_generator():
+            if not chunk.startswith("data: "):
+                continue
+            raw = chunk[6:].strip()
+            if not raw or raw == "[DONE]":
+                continue
+            try:
+                data = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+            kind = data.get("type")
+            if kind == "session" and data.get("session_id"):
+                collected["session_id"] = data["session_id"]
+            elif kind == "content" and data.get("content"):
+                collected["content"] += data["content"]
+            elif kind == "done":
+                collected["references"] = data.get("references") or []
+                collected["graph"] = data.get("graph") or []
+            elif kind == "safety":
+                collected["safety"] = data
+            elif kind == "error":
+                collected["error"] = data.get("message")
+        return success(collected)
 
     return StreamingResponse(
         event_generator(),

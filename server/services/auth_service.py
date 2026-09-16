@@ -1,4 +1,7 @@
 """认证服务"""
+import hashlib
+import secrets
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -13,7 +16,7 @@ from models.admin import Admin
 from models.department import Department
 from models.doctor import Doctor
 from models.user import User
-from schemas.common import LoginRequest, RegisterRequest, TokenResponse
+from schemas.common import LoginRequest, RegisterRequest, TokenResponse, WeChatLoginRequest
 from utils.account import username_exists
 
 _PUBLIC_REGISTER_ROLES = {"user", "doctor"}
@@ -173,4 +176,63 @@ class AuthService:
             user_id=account.id,
             username=account.username,
             nickname=nickname,
+        )
+
+    @staticmethod
+    def _wechat_username(openid: str, extra: bool = False) -> str:
+        digest = hashlib.sha256(openid.encode("utf-8")).hexdigest()
+        suffix = f"{digest[:12]}{secrets.token_hex(3)}" if extra else digest[:16]
+        return f"wx{suffix}"[:50]
+
+    @staticmethod
+    def wechat_login(db: Session, req: WeChatLoginRequest) -> TokenResponse:
+        """微信小程序登录，签发与账号密码登录相同的患者 JWT。"""
+        from services.wechat_service import jscode2session
+
+        openid, unionid = jscode2session(req.code)
+        user = db.query(User).filter(User.wx_openid == openid).first()
+        if user is None and unionid:
+            user = db.query(User).filter(User.wx_unionid == unionid).first()
+            if user and not user.wx_openid:
+                user.wx_openid = openid
+
+        nickname = (req.nickname or "").strip()[:50]
+        if user is None:
+            username = AuthService._wechat_username(openid)
+            while username_exists(db, username):
+                username = AuthService._wechat_username(openid, extra=True)
+            user = User(
+                username=username,
+                password=hash_password(secrets.token_urlsafe(32)),
+                real_name=nickname or "微信用户",
+                wx_openid=openid,
+                wx_unionid=unionid,
+                gender=1,
+                status=1,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            changed = False
+            if unionid and not user.wx_unionid:
+                user.wx_unionid = unionid
+                changed = True
+            if nickname and (not user.real_name or user.real_name == "微信用户"):
+                user.real_name = nickname
+                changed = True
+            if changed:
+                db.commit()
+
+        if getattr(user, "status", 1) == 0:
+            raise HTTPException(status_code=403, detail="账号已被禁用")
+
+        token = create_access_token({"sub": user.username, "user_id": user.id, "role": "user"})
+        return TokenResponse(
+            access_token=token,
+            role="user",
+            user_id=user.id,
+            username=user.username,
+            nickname=user.real_name,
+            avatar=getattr(user, "avatar", None),
         )

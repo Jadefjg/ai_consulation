@@ -58,9 +58,11 @@ def create_appointment(req: AppointmentCreate, db: Session = Depends(get_db), cu
                 "该时段不能同时预约其他医生"
             )
         raise HTTPException(status_code=400, detail=detail)
+    # Lock the schedule row while checking and consuming capacity. Without this,
+    # concurrent requests can both observe the same remaining slot and oversell.
     schedule = db.query(DoctorSchedule).filter_by(
         doctor_id=req.doctor_id, work_date=req.visit_date, time_slot=req.time_slot, status=1
-    ).first()
+    ).with_for_update().first()
     if not schedule:
         raise HTTPException(status_code=400, detail="该医生此日期时段暂无可预约号源")
     used = db.query(Appointment.id).filter(

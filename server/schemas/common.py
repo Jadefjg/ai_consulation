@@ -12,6 +12,12 @@ class LoginRequest(BaseModel):
     role: str = Field(..., description="角色: user/doctor/admin")
 
 
+class WeChatLoginRequest(BaseModel):
+    """微信小程序登录：wx.login 拿到的 code"""
+    code: str = Field(..., min_length=1, max_length=128, description="wx.login code")
+    nickname: Optional[str] = Field(None, max_length=50, description="可选昵称")
+
+
 class RegisterRequest(BaseModel):
     """三角色注册请求"""
     username: str = Field(..., min_length=3, max_length=50)

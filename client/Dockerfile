@@ -16,5 +16,8 @@ FROM nginx:1.27-alpine
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN mkdir -p /usr/share/nginx/html-h5 \
+    && printf '%s\n' '<!doctype html><meta charset="utf-8"><title>患者端 H5</title><p>请将 mobile H5 构建产物放到此目录</p>' \
+    > /usr/share/nginx/html-h5/index.html
 
 EXPOSE 80

@@ -30,11 +30,14 @@ CREATE TABLE IF NOT EXISTS t_user (
   phone VARCHAR(20) DEFAULT NULL COMMENT '手机号',
   avatar VARCHAR(255) DEFAULT NULL COMMENT '头像路径',
   allergy_history TEXT COMMENT '过敏史',
+  wx_openid VARCHAR(64) DEFAULT NULL COMMENT '微信小程序 openid',
+  wx_unionid VARCHAR(64) DEFAULT NULL COMMENT '微信 unionid',
   status INT DEFAULT 1 COMMENT '状态',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_user_username (username)
+  UNIQUE KEY uk_user_username (username),
+  UNIQUE KEY uk_user_wx_openid (wx_openid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='患者用户表';
 
 CREATE TABLE IF NOT EXISTS t_department (
