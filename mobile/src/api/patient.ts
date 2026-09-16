@@ -99,9 +99,20 @@ export function cancelAppointment(id: number) {
 export function fetchMyConsults() {
   return request({ url: '/consult/my' }).then(asList)
 }
+export function fetchConsult(id: number) { return request({ url: `/consult/${id}` }) }
+export function fetchNotifications() { return request({ url: '/operations/notifications' }).then(asList) }
+export function markNotificationRead(id: number) { return request({ url: `/operations/notifications/${id}/read`, method: 'PUT' }) }
 
 export function createConsult(payload: Record<string, unknown>) {
   return request({ url: '/consult/create', method: 'POST', data: payload })
+}
+
+export function addConsultFollowup(consultId: number, content: string) {
+  return request({ url: `/consult/${consultId}/followup`, method: 'POST', data: { content } })
+}
+
+export function closeConsult(consultId: number) {
+  return request({ url: `/consult/${consultId}/close`, method: 'PUT' })
 }
 
 export function fetchMyRecords() {

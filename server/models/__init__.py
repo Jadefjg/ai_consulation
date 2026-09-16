@@ -8,7 +8,7 @@ from models.consult import ConsultSession, ConsultMessage
 from models.doctor_consult import DoctorConsult, DoctorReply, DoctorConsultFollowup
 from models.appointment import Appointment, HealthRecord
 from models.article import Article, Notice
-from models.operations import DoctorSchedule, Notification, AuditLog
+from models.operations import DoctorSchedule, Notification, AuditLog, AppointmentWaitlist, PaymentOrder
 from models.clinical import SymptomAssessment, AIConsultReview, AIResponseEvaluation
 from models.p3 import FollowupPlan, FollowupTask, ChronicRecord, ChronicMetric, RiskAssessment, KnowledgeVersion
 
@@ -18,7 +18,7 @@ __all__ = [
     "ConsultSession", "ConsultMessage",
     "DoctorConsult", "DoctorReply", "DoctorConsultFollowup",
     "Appointment", "HealthRecord",
-    "DoctorSchedule", "Notification", "AuditLog",
+    "DoctorSchedule", "Notification", "AuditLog", "AppointmentWaitlist", "PaymentOrder",
     "Article", "Notice",
     "SymptomAssessment", "AIConsultReview", "AIResponseEvaluation",
     "FollowupPlan", "FollowupTask", "ChronicRecord", "ChronicMetric", "RiskAssessment", "KnowledgeVersion",

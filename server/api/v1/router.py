@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 
 from api.v1 import admin_account, appointment, article, auth, chat, clinical, consult
-from api.v1 import department, doctor, graph, knowledge, notice, operations, p3
+from api.v1 import department, doctor, graph, knowledge, notice, operations, p3, payment
 from api.v1 import profile, record, stat, user
 
 api_router = APIRouter(prefix="/api/v1")
@@ -25,3 +25,4 @@ api_router.include_router(profile.router, prefix="/profile", tags=["个人中心
 api_router.include_router(operations.router, prefix="/operations", tags=["运营管理"])
 api_router.include_router(clinical.router, prefix="/clinical", tags=["临床工作流"])
 api_router.include_router(p3.router, prefix="/p3", tags=["随访与慢病"])
+api_router.include_router(payment.router, prefix="/payment", tags=["支付订单"])

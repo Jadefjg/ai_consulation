@@ -43,7 +43,9 @@
     {
       "path": "pages/notice-detail/index",
       "style": { "navigationBarTitleText": "公告详情" }
-    }
+    },
+    { "path": "pages/notifications/index", "style": { "navigationBarTitleText": "通知中心" } },
+    { "path": "pages/consult-detail/index", "style": { "navigationBarTitleText": "咨询详情" } }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "white",

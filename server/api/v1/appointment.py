@@ -12,7 +12,7 @@ from models.appointment import Appointment
 from models.user import User
 from models.doctor import Doctor
 from models.department import Department
-from models.operations import DoctorSchedule, Notification, AuditLog
+from models.operations import DoctorSchedule, Notification, AuditLog, AppointmentWaitlist
 from schemas.common import AppointmentCreate
 from utils.helpers import format_datetime, format_date
 
@@ -20,6 +20,16 @@ router = APIRouter()
 
 _VALID_STATUS = {0, 1, 2, 3, 4}
 _VALID_SLOTS = {"上午", "下午", "晚上"}
+
+@router.post("/waitlist/join")
+def join_waitlist(doctor_id: int, work_date: date, time_slot: str, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
+    if time_slot not in _VALID_SLOTS or work_date < date.today(): raise HTTPException(status_code=400, detail="日期或时段无效")
+    if not db.query(Doctor.id).filter(Doctor.id == doctor_id, Doctor.status == 1).first(): raise HTTPException(status_code=404, detail="医生不存在")
+    row = db.query(AppointmentWaitlist).filter_by(user_id=current.user_id, doctor_id=doctor_id, work_date=work_date, time_slot=time_slot).first()
+    if row and row.status == 0: return success({"id": row.id}, "已在候补队列")
+    if not row: row = AppointmentWaitlist(user_id=current.user_id, doctor_id=doctor_id, work_date=work_date, time_slot=time_slot); db.add(row)
+    else: row.status = 0
+    db.commit(); return success({"id": row.id}, "已加入候补队列")
 
 
 @router.post("/create")
@@ -144,6 +154,10 @@ def cancel_my_appointment(appt_id: int, db: Session = Depends(get_db), current: 
     if appt.status not in (0, 1):
         raise HTTPException(status_code=400, detail="当前状态不可取消")
     appt.status = 3
+    candidate = db.query(AppointmentWaitlist).filter_by(doctor_id=appt.doctor_id, work_date=appt.visit_date, time_slot=appt.time_slot, status=0).order_by(AppointmentWaitlist.id).first()
+    if candidate:
+        candidate.status = 1
+        db.add(Notification(user_id=candidate.user_id, title="预约号源已释放", content="您候补的预约时段已有号源，请尽快进入小程序预约。", type="waitlist"))
     db.commit()
     return success(None, "预约已取消")
 

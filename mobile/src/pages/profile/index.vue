@@ -62,6 +62,7 @@ async function save() {
       <view class="menu" @click="open('/pages/consult/index')">我的咨询</view>
       <view class="menu" @click="open('/pages/records/index')">健康档案</view>
       <view class="menu" @click="open('/pages/health/index')">健康管理 / 随访慢病</view>
+      <view class="menu" @click="open('/pages/notifications/index')">通知中心</view>
     </view>
 
     <view class="card">

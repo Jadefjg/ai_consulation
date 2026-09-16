@@ -154,6 +154,19 @@ def close_consult(consult_id: int, db: Session = Depends(get_db), current: Curre
     db.commit()
     return success(None, "咨询已关闭")
 
+@router.get("/{consult_id}")
+def get_consult(consult_id: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("user"))):
+    consult = db.query(DoctorConsult).filter(DoctorConsult.id == consult_id, DoctorConsult.user_id == current.user_id).first()
+    if not consult: raise HTTPException(status_code=404, detail="咨询不存在")
+    doctor = db.query(Doctor).filter(Doctor.id == consult.doctor_id).first() if consult.doctor_id else None
+    replies = db.query(DoctorReply).filter(DoctorReply.consult_id == consult.id).order_by(DoctorReply.id).all()
+    followups = db.query(DoctorConsultFollowup).filter(DoctorConsultFollowup.consult_id == consult.id).order_by(DoctorConsultFollowup.id).all()
+    timeline = [{"type":"question","content":consult.chief_complaint,"create_time":format_datetime(consult.create_time)}]
+    timeline += [{"type":"reply","content":r.content,"create_time":format_datetime(r.create_time)} for r in replies]
+    timeline += [{"type":"followup","content":f.content,"create_time":format_datetime(f.create_time)} for f in followups]
+    timeline.sort(key=lambda x: x["create_time"] or "")
+    return success({"id": consult.id, "status": consult.status, "doctor_name": doctor.real_name if doctor else "待分配", "timeline": timeline})
+
 
 @router.put("/admin/{consult_id}/assign")
 def assign_consult(consult_id: int, doctor_id: int, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
-import { createConsult, fetchDoctors, fetchMyConsults } from '@/api/patient'
+import { addConsultFollowup, closeConsult, createConsult, fetchDoctors, fetchMyConsults } from '@/api/patient'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 const list = ref<any[]>([])
 const doctors = ref<any[]>([{ id: 0, real_name: '待系统分配' }])
 const creating = ref(false)
+const actionId = ref<number | null>(null)
 const form = reactive({ doctorIndex: 0, content: '' })
 const statusMap: Record<number, string> = { 0: '待处理', 1: '已回复', 2: '已关闭', 3: '超时' }
 const doctorNames = computed(() => doctors.value.map((item) => item.real_name || item.username))
@@ -28,6 +29,7 @@ onShow(load)
 function onDoctorChange(event: any) {
   form.doctorIndex = Number(event.detail.value)
 }
+function openDetail(id: number) { uni.navigateTo({ url: `/pages/consult-detail/index?id=${id}` }) }
 
 async function submit() {
   if (!form.content.trim()) {
@@ -50,6 +52,28 @@ async function submit() {
     creating.value = false
   }
 }
+
+function followup(item: any) {
+  let content = ''
+  uni.showModal({ title: '追加追问', editable: true, placeholderText: '请输入追问内容', success: async (res) => {
+    content = (res.content || '').trim()
+    if (!res.confirm || !content || actionId.value) return
+    actionId.value = item.id
+    try { await addConsultFollowup(item.id, content); uni.showToast({ title: '已提交', icon: 'success' }); await load() }
+    catch (error: any) { uni.showToast({ title: error.message || '提交失败', icon: 'none' }) }
+    finally { actionId.value = null }
+  } })
+}
+
+function close(item: any) {
+  uni.showModal({ title: '关闭咨询', content: '关闭后将不能继续追问，确认关闭？', success: async (res) => {
+    if (!res.confirm || actionId.value) return
+    actionId.value = item.id
+    try { await closeConsult(item.id); uni.showToast({ title: '已关闭', icon: 'success' }); await load() }
+    catch (error: any) { uni.showToast({ title: error.message || '操作失败', icon: 'none' }) }
+    finally { actionId.value = null }
+  } })
+}
 </script>
 
 <template>
@@ -64,11 +88,15 @@ async function submit() {
     </view>
 
     <view v-for="item in list" :key="item.id" class="card">
-      <text class="name">{{ item.doctor_name || '待分配' }} · {{ statusMap[item.status] || item.status }}</text>
+      <text class="name" @click="openDetail(item.id)">{{ item.doctor_name || '待分配' }} · {{ statusMap[item.status] || item.status }}</text>
       <text class="meta">{{ item.chief_complaint }}</text>
       <text class="time">{{ item.create_time }}</text>
       <view v-for="(reply, index) in item.replies || []" :key="index" class="reply">
         <text>医生回复：{{ reply.content }}</text>
+      </view>
+      <view v-if="item.status !== 2" class="actions">
+        <button size="mini" class="ghost" :loading="actionId === item.id" @click="followup(item)">追加追问</button>
+        <button size="mini" class="ghost" :loading="actionId === item.id" @click="close(item)">关闭咨询</button>
       </view>
     </view>
     <view v-if="!list.length" class="empty">暂无咨询</view>

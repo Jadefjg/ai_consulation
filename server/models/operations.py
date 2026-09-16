@@ -41,3 +41,29 @@ class AuditLog(Base):
     target_id = Column(Integer)
     detail = Column(Text)
     create_time = Column(DateTime, server_default=func.now())
+
+class AppointmentWaitlist(Base):
+    __tablename__ = "t_appointment_waitlist"
+    __table_args__ = (UniqueConstraint("user_id", "doctor_id", "work_date", "time_slot", name="uq_waitlist_entry"),)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False)
+    doctor_id = Column(Integer, nullable=False)
+    work_date = Column(Date, nullable=False)
+    time_slot = Column(String(20), nullable=False)
+    status = Column(Integer, default=0, nullable=False)  # 0 waiting, 1 notified, 2 cancelled
+    create_time = Column(DateTime, server_default=func.now())
+
+class PaymentOrder(Base):
+    __tablename__ = "t_payment_order"
+    __table_args__ = (UniqueConstraint("order_no", name="uq_payment_order_no"),)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_no = Column(String(64), nullable=False)
+    user_id = Column(Integer, nullable=False)
+    business_type = Column(String(30), nullable=False, default="consult")
+    business_id = Column(Integer)
+    amount = Column(Integer, nullable=False, default=0)  # cents
+    status = Column(String(20), nullable=False, default="pending")
+    provider = Column(String(20), nullable=False, default="wechat")
+    transaction_id = Column(String(100))
+    create_time = Column(DateTime, server_default=func.now())
+    paid_time = Column(DateTime)
