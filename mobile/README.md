@@ -15,7 +15,8 @@ npm install
 # H5：http://localhost:5174  （代理到后端 /api）
 npm run dev:h5
 
-# 微信小程序：用微信开发者工具导入 mobile/dist/dev/mp-weixin
+# 微信小程序：用微信开发者工具导入 **mobile/dist/build/mp-weixin**（或 `npm run dev:mp-weixin` 后的 `mobile/dist/dev/mp-weixin`）
+# 必须在开发者工具右上角扫码登录，并使用与 manifest 中相同的 AppID，否则会一直停在「游客模式」
 # 开发阶段勾选「不校验合法域名」
 npm run dev:mp-weixin
 ```

@@ -28,6 +28,12 @@ const riskForm = reactive({
 
 const planStatus: Record<number, string> = { 1: '进行中', 2: '已暂停', 3: '已完成' }
 const chronicNames = computed(() => chronicRecords.value.map((item) => `${item.disease}（#${item.id}）`))
+const riskTone = computed(() => {
+  const level = String(risk.value?.level || '')
+  if (level.includes('高')) return 'high'
+  if (level.includes('中')) return 'mid'
+  return 'low'
+})
 
 async function load() {
   if (!userStore.requireLogin()) return
@@ -171,7 +177,7 @@ async function handleAssess() {
         <text class="check" :class="{ on: riskForm.emergency_symptom }" @click="riskForm.emergency_symptom = !riskForm.emergency_symptom">疑似急症</text>
       </view>
       <button class="primary" @click="handleAssess">开始评估</button>
-      <view v-if="risk" class="risk" :class="risk.level">
+      <view v-if="risk" class="risk" :class="riskTone">
         <text class="name">{{ risk.level }} · {{ risk.score }} 分</text>
         <text class="meta">{{ risk.advice }}</text>
       </view>
@@ -190,13 +196,15 @@ async function handleAssess() {
 .input, .picker { background: #f5f6fa; border-radius: 12rpx; padding: 20rpx; margin: 12rpx 0; }
 .primary { background: #b56bc4; color: #fff; margin-top: 8rpx; }
 .mini { display: inline-block; margin-top: 16rpx; }
-.row { display: flex; align-items: center; gap: 16rpx; }
-.label { width: 120rpx; color: #666; }
+.row { display: flex; align-items: center; }
+.label { width: 120rpx; color: #666; margin-right: 16rpx; }
 .grow { flex: 1; }
-.checks { display: flex; gap: 16rpx; margin: 12rpx 0 20rpx; }
-.check { padding: 12rpx 20rpx; border-radius: 999rpx; background: #f5f6fa; color: #666; }
+.checks { display: flex; margin: 12rpx 0 20rpx; }
+.check { padding: 12rpx 20rpx; border-radius: 999rpx; background: #f5f6fa; color: #666; margin-right: 16rpx; }
 .check.on { background: #f3e6f7; color: #b56bc4; }
 .risk { margin-top: 20rpx; padding: 20rpx; border-radius: 12rpx; background: #f7eef9; }
-.risk.高风险 { background: #fdeaea; }
+.risk.high { background: #fdeaea; }
+.risk.mid { background: #fff4e5; }
+.risk.low { background: #f7eef9; }
 .empty { color: #8a8f99; padding: 12rpx 0; }
 </style>

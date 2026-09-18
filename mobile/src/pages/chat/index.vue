@@ -113,9 +113,10 @@ async function scrollBottom() {
 .chat { height: 100vh; display: flex; flex-direction: column; }
 .list { flex: 1; padding: 20rpx 24rpx calc(160rpx + var(--window-bottom)); box-sizing: border-box; }
 .disclaimer { background: #fff4e5; color: #8a5a00; padding: 16rpx 20rpx; border-radius: 12rpx; font-size: 22rpx; }
-.toolbar { margin: 16rpx 0; color: #b56bc4; display: flex; gap: 32rpx; }
-.sessions { display: flex; flex-wrap: wrap; gap: 12rpx; margin-bottom: 16rpx; }
-.tag { background: #fff; padding: 8rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; color: #666; }
+.toolbar { margin: 16rpx 0; color: #b56bc4; display: flex; }
+.toolbar text { margin-right: 32rpx; }
+.sessions { display: flex; flex-wrap: wrap; margin-bottom: 16rpx; }
+.tag { background: #fff; padding: 8rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; color: #666; margin: 0 12rpx 12rpx 0; }
 .tag.on { background: #f3e6f7; color: #b56bc4; }
 .bubble { max-width: 80%; padding: 20rpx 24rpx; border-radius: 20rpx; margin: 12rpx 0; white-space: pre-wrap; }
 .bubble.user { margin-left: auto; background: #b56bc4; color: #fff; }
@@ -126,10 +127,9 @@ async function scrollBottom() {
   right: 0;
   bottom: var(--window-bottom);
   display: flex;
-  gap: 16rpx;
   padding: 16rpx 24rpx;
   background: #fff;
 }
-.box { flex: 1; background: #f5f6fa; height: 72rpx; border-radius: 16rpx; padding: 0 20rpx; }
+.box { flex: 1; background: #f5f6fa; height: 72rpx; border-radius: 16rpx; padding: 0 20rpx; margin-right: 16rpx; }
 .send { background: #b56bc4; color: #fff; }
 </style>

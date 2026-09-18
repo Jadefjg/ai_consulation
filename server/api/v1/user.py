@@ -21,16 +21,24 @@ router = APIRouter()
 _ROLE_LABELS = {"user": "用户", "doctor": "医生", "admin": "管理员", "root": "超级管理员"}
 _ROLE_SORT_ORDER = {"root": 0, "admin": 1, "doctor": 2, "user": 3}
 
+def _mask_phone(value):
+    value = value or ""
+    return value[:3] + "****" + value[-4:] if len(value) >= 7 else ("***" if value else "")
+
+def _mask_name(value):
+    value = value or ""
+    return value[:1] + "*" * max(len(value) - 1, 0) if value else ""
+
 
 def _user_to_dict(user: User) -> dict:
     """将用户对象转为字典"""
     data = {
         "id": user.id,
         "username": user.username,
-        "real_name": user.real_name,
+        "real_name": _mask_name(user.real_name),
         "gender": user.gender,
         "age": user.age,
-        "phone": user.phone,
+        "phone": _mask_phone(user.phone),
         "avatar": user.avatar,
         "allergy_history": user.allergy_history,
         "status": user.status,

@@ -19,6 +19,9 @@ def mark_read(notification_id: int, db: Session = Depends(get_db), current: Curr
     row.is_read = 1; db.commit(); return success(None, "已读")
 
 @router.get("/audit")
-def audit(page: int = 1, page_size: int = 20, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
-    q = db.query(AuditLog); total = q.count(); rows = q.order_by(AuditLog.id.desc()).offset((page-1)*page_size).limit(page_size).all()
+def audit(page: int = 1, page_size: int = 20, action: str = "", target_type: str = "", db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+    q = db.query(AuditLog)
+    if action: q = q.filter(AuditLog.action == action)
+    if target_type: q = q.filter(AuditLog.target_type == target_type)
+    total = q.count(); rows = q.order_by(AuditLog.id.desc()).offset((page-1)*page_size).limit(page_size).all()
     return page_result([{"id": r.id, "actor_id": r.actor_id, "actor_role": r.actor_role, "action": r.action, "target_type": r.target_type, "target_id": r.target_id, "detail": r.detail, "create_time": r.create_time} for r in rows], total, page, page_size)

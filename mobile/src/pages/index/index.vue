@@ -75,8 +75,8 @@ function openNotice(id: number) {
 .stats { display: flex; background: #fff; border-radius: 20rpx; margin-top: 24rpx; padding: 24rpx 0; }
 .stat { flex: 1; text-align: center; color: #8a8f99; font-size: 24rpx; }
 .num { display: block; color: #1f2933; font-size: 36rpx; font-weight: 700; margin-bottom: 8rpx; }
-.entry { display: flex; flex-wrap: wrap; gap: 20rpx; margin-top: 24rpx; }
-.item { width: calc(50% - 10rpx); background: #fff; border-radius: 20rpx; padding: 36rpx 0; text-align: center; box-sizing: border-box; }
+.entry { display: flex; flex-wrap: wrap; margin-top: 24rpx; }
+.item { width: 48%; margin: 0 1% 20rpx; background: #fff; border-radius: 20rpx; padding: 36rpx 0; text-align: center; box-sizing: border-box; }
 .icon { display: block; font-size: 44rpx; margin-bottom: 8rpx; }
 .section { background: #fff; border-radius: 20rpx; margin-top: 24rpx; padding: 28rpx; }
 .section-title { font-weight: 700; }

@@ -48,7 +48,11 @@ async function handleWechatLogin() {
     await userStore.loginWechat(loginRes.code)
     goHome()
   } catch (error: any) {
-    uni.showToast({ title: error.message || '微信登录失败', icon: 'none' })
+    const message = String(error.message || '微信登录失败')
+    uni.showToast({
+      title: /AppID|Secret|未配置/.test(message) ? '微信登录未就绪，请先用账号密码' : message,
+      icon: 'none',
+    })
   } finally {
     loading.value = false
   }

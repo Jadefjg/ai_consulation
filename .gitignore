@@ -2,6 +2,8 @@
 .DS_Store
 .idea
 .vscode
+.venv/
+**/.venv/
 **/__pycache__/
 *.pyc
 server/chroma_db/

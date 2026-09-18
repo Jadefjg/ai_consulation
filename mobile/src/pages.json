@@ -59,10 +59,10 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
-      { "pagePath": "pages/index/index", "text": "首页" },
-      { "pagePath": "pages/chat/index", "text": "问诊" },
-      { "pagePath": "pages/articles/index", "text": "资讯" },
-      { "pagePath": "pages/profile/index", "text": "我的" }
+      { "pagePath": "pages/index/index", "text": "首页", "iconPath": "static/tab/home.png", "selectedIconPath": "static/tab/home-active.png" },
+      { "pagePath": "pages/chat/index", "text": "问诊", "iconPath": "static/tab/chat.png", "selectedIconPath": "static/tab/chat-active.png" },
+      { "pagePath": "pages/articles/index", "text": "资讯", "iconPath": "static/tab/news.png", "selectedIconPath": "static/tab/news-active.png" },
+      { "pagePath": "pages/profile/index", "text": "我的", "iconPath": "static/tab/user.png", "selectedIconPath": "static/tab/user-active.png" }
     ]
   }
 }

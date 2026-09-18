@@ -1,0 +1,11 @@
+{
+    "mp-weixin" : {
+        "appid" : "wx9d427f2699c9b2d0",
+        "setting" : {
+            "es6" : true,
+            "postcss" : true,
+            "minified" : true
+        },
+        "permission" : {}
+    }
+}

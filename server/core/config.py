@@ -113,6 +113,10 @@ CORS_ORIGINS = [
 WECHAT_MINI_APPID = _env("WECHAT_MINI_APPID")
 WECHAT_MINI_SECRET = _env("WECHAT_MINI_SECRET")
 WECHAT_DEV_LOGIN = _env_bool("WECHAT_DEV_LOGIN", APP_ENV not in {"production", "prod"})
+WECHAT_SUBSCRIBE_TEMPLATE_ID = _env("WECHAT_SUBSCRIBE_TEMPLATE_ID", "")
+WECHAT_SUBSCRIBE_PAGE = _env("WECHAT_SUBSCRIBE_PAGE", "pages/appointments/index")
+WECHAT_API_TIMEOUT_SECONDS = _env_float("WECHAT_API_TIMEOUT_SECONDS", 5.0)
+PAYMENT_CALLBACK_SECRET = _env("PAYMENT_CALLBACK_SECRET", "")
 
 # 本地 Ollama 不校验密钥，但 OpenAI SDK 要求 api_key 非空
 _local_llm = any(token in OPENAI_BASE_URL.lower() for token in ("127.0.0.1", "localhost", "host.docker.internal", "11434", "ollama"))
@@ -229,6 +233,10 @@ class Settings:
     wechat_mini_appid: str = WECHAT_MINI_APPID
     wechat_mini_secret: str = WECHAT_MINI_SECRET
     wechat_dev_login: bool = WECHAT_DEV_LOGIN
+    wechat_subscribe_template_id: str = WECHAT_SUBSCRIBE_TEMPLATE_ID
+    wechat_subscribe_page: str = WECHAT_SUBSCRIBE_PAGE
+    wechat_api_timeout_seconds: float = WECHAT_API_TIMEOUT_SECONDS
+    payment_callback_secret: str = PAYMENT_CALLBACK_SECRET
 
 
 settings = Settings()

@@ -13,6 +13,7 @@ from models.user import User
 from models.doctor import Doctor
 from models.department import Department
 from models.operations import DoctorSchedule, Notification, AuditLog, AppointmentWaitlist
+from services.waitlist_service import notify_next
 from schemas.common import AppointmentCreate
 from utils.helpers import format_datetime, format_date
 
@@ -154,10 +155,7 @@ def cancel_my_appointment(appt_id: int, db: Session = Depends(get_db), current: 
     if appt.status not in (0, 1):
         raise HTTPException(status_code=400, detail="当前状态不可取消")
     appt.status = 3
-    candidate = db.query(AppointmentWaitlist).filter_by(doctor_id=appt.doctor_id, work_date=appt.visit_date, time_slot=appt.time_slot, status=0).order_by(AppointmentWaitlist.id).first()
-    if candidate:
-        candidate.status = 1
-        db.add(Notification(user_id=candidate.user_id, title="预约号源已释放", content="您候补的预约时段已有号源，请尽快进入小程序预约。", type="waitlist"))
+    notify_next(db, appt.doctor_id, appt.visit_date, appt.time_slot)
     db.commit()
     return success(None, "预约已取消")
 
@@ -297,18 +295,25 @@ def update_schedule_status(schedule_id: int, status: int, db: Session = Depends(
     row = db.query(DoctorSchedule).filter(DoctorSchedule.id == schedule_id).first()
     if not row:
         raise HTTPException(status_code=404, detail="排班不存在")
+    previous = row.status
     row.status = status
+    if previous == 0 and status == 1:
+        notify_next(db, row.doctor_id, row.work_date, row.time_slot)
     db.add(AuditLog(actor_id=current.user_id, actor_role=current.role, action="update_schedule_status", target_type="schedule", target_id=row.id, detail=str(status)))
     db.commit()
     return success(None, "排班状态已更新")
 
 @router.put("/admin/schedules/{schedule_id}")
-def edit_schedule(schedule_id: int, doctor_id: int, work_date: date, time_slot: str, capacity: int = 1, db: Session = Depends(get_db), _: CurrentUser = Depends(require_roles("admin"))):
+def edit_schedule(schedule_id: int, doctor_id: int, work_date: date, time_slot: str, capacity: int = 1, db: Session = Depends(get_db), current: CurrentUser = Depends(require_roles("admin"))):
     if time_slot not in _VALID_SLOTS or not 1 <= capacity <= 100:
         raise HTTPException(status_code=400, detail="排班参数无效")
     row = db.query(DoctorSchedule).filter(DoctorSchedule.id == schedule_id).first()
     if not row: raise HTTPException(status_code=404, detail="排班不存在")
+    old = (row.doctor_id, row.work_date, row.time_slot, row.capacity)
     row.doctor_id, row.work_date, row.time_slot, row.capacity = doctor_id, work_date, time_slot, capacity
+    db.add(AuditLog(actor_id=current.user_id, actor_role=current.role, action="edit_schedule", target_type="schedule", target_id=row.id, detail=f"from={old},to={(doctor_id, work_date, time_slot, capacity)}"))
+    if capacity > old[3] or old[:3] != (doctor_id, work_date, time_slot):
+        notify_next(db, doctor_id, work_date, time_slot)
     db.commit(); return success(None, "排班已更新")
 
 @router.delete("/admin/schedules/{schedule_id}")
