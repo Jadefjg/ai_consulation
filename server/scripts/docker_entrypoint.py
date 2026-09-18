@@ -121,8 +121,17 @@ def main() -> None:
 
     if _truthy("INIT_GRAPH", "true"):
         logger.info("initializing knowledge graph", extra={"event": "graph_init_started"})
-        from scripts.init_graph import init_graph
-        init_graph()
+        try:
+            from scripts.init_graph import init_graph
+            init_graph()
+        except Exception:
+            logger.exception("knowledge graph initialization failed", extra={"event": "graph_init_failed"})
+            if _truthy("NEO4J_REQUIRED", "true"):
+                raise
+            logger.warning(
+                "continue startup without graph because NEO4J_REQUIRED=false",
+                extra={"event": "graph_init_skipped"},
+            )
     else:
         logger.info("knowledge graph initialization skipped", extra={"event": "graph_init_skipped"})
 

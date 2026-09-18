@@ -33,7 +33,7 @@ export function fetchNotices() {
 }
 
 export function fetchNotice(id: number) {
-  return request({ url: `/notices/${id}` })
+  return request({ url: `/notices/${encodeURIComponent(String(id))}` })
 }
 
 export function fetchArticles(page = 1, pageSize = 10) {
@@ -41,7 +41,7 @@ export function fetchArticles(page = 1, pageSize = 10) {
 }
 
 export function fetchArticle(id: number) {
-  return request({ url: `/articles/${id}` })
+  return request({ url: `/articles/${encodeURIComponent(String(id))}` })
 }
 
 export function fetchChatSessions() {
@@ -49,14 +49,14 @@ export function fetchChatSessions() {
 }
 
 export function fetchChatMessages(sessionId: number) {
-  return request({ url: `/chat/sessions/${sessionId}/messages` }).then(asList)
+  return request({ url: `/chat/sessions/${encodeURIComponent(String(sessionId))}/messages` }).then(asList)
 }
 
 export function sendChat(message: string, sessionId?: number | null) {
   return request({
     url: '/chat/send?stream=0',
     method: 'POST',
-    data: sessionId ? { session_id: sessionId, message } : { message },
+    data: sessionId != null ? { session_id: sessionId, message } : { message },
     timeout: 120000,
   })
 }
@@ -93,26 +93,26 @@ export function createAppointment(payload: Record<string, unknown>) {
 }
 
 export function cancelAppointment(id: number) {
-  return request({ url: `/appointments/my/${id}/cancel`, method: 'PUT' })
+  return request({ url: `/appointments/my/${encodeURIComponent(String(id))}/cancel`, method: 'PUT' })
 }
 
 export function fetchMyConsults() {
   return request({ url: '/consult/my' }).then(asList)
 }
-export function fetchConsult(id: number) { return request({ url: `/consult/${id}` }) }
+export function fetchConsult(id: number) { return request({ url: `/consult/${encodeURIComponent(String(id))}` }) }
 export function fetchNotifications() { return request({ url: '/operations/notifications' }).then(asList) }
-export function markNotificationRead(id: number) { return request({ url: `/operations/notifications/${id}/read`, method: 'PUT' }) }
+export function markNotificationRead(id: number) { return request({ url: `/operations/notifications/${encodeURIComponent(String(id))}/read`, method: 'PUT' }) }
 
 export function createConsult(payload: Record<string, unknown>) {
   return request({ url: '/consult/create', method: 'POST', data: payload })
 }
 
 export function addConsultFollowup(consultId: number, content: string) {
-  return request({ url: `/consult/${consultId}/followup`, method: 'POST', data: { content } })
+  return request({ url: `/consult/${encodeURIComponent(String(consultId))}/followup`, method: 'POST', data: { content } })
 }
 
 export function closeConsult(consultId: number) {
-  return request({ url: `/consult/${consultId}/close`, method: 'PUT' })
+  return request({ url: `/consult/${encodeURIComponent(String(consultId))}/close`, method: 'PUT' })
 }
 
 export function fetchMyRecords() {
@@ -125,7 +125,7 @@ export function fetchFollowups() {
 
 export function completeFollowup(taskId: number, response: string) {
   return request({
-    url: `/p3/followups/${taskId}/complete`,
+    url: `/p3/followups/${encodeURIComponent(String(taskId))}/complete`,
     method: 'POST',
     data: { response },
   })
@@ -141,7 +141,7 @@ export function createChronic(disease: string) {
 
 export function addChronicMetric(chronicId: number, metric: string, value: string) {
   return request({
-    url: `/p3/chronic/${chronicId}/metrics`,
+    url: `/p3/chronic/${encodeURIComponent(String(chronicId))}/metrics`,
     method: 'POST',
     data: { metric, value },
   })

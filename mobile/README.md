@@ -16,7 +16,8 @@ npm install
 npm run dev:h5
 
 # 微信小程序：先编译，再用开发者工具打开产物
-# 开发阶段勾选「不校验合法域名」；须扫码登录，AppID 与 src/manifest.json 一致
+# 开发阶段勾选「不校验合法域名」；须扫码登录。
+# AppID 只改 src/manifest.json（与根目录 manifest.json 保持相同），不要在开发者工具详情页改，否则下次编译会被覆盖。
 npm run dev:mp-weixin
 npm run open:mp-weixin
 
@@ -26,11 +27,16 @@ npm run open:mp-weixin
 # 3. 或在开发者工具中导入 mobile/dist/dev/mp-weixin
 ```
 
-H5 用已有患者账号密码登录。小程序开发时默认请求 `http://127.0.0.1:8000/api/v1`（见 `.env.development`）。发行包才走 `https://www.wfrz.fun`。真机预览请在 `mobile/.env.local` 写成电脑的局域网 IP：
+H5 用已有患者账号密码登录。
+
+小程序默认请求线上 `https://www.wfrz.fun/api/v1`（与公众平台 request 合法域名一致）。只有开发者工具要连本机时，才在 `mobile/.env.local` 写入：
 
 ```
-VITE_API_BASE=http://192.168.x.x:8000/api/v1
+VITE_USE_LOCAL_API=true
+VITE_API_BASE=http://127.0.0.1:8000/api/v1
 ```
+
+并勾选「不校验合法域名」。体验版 / 真机不要开这个开关。
 
 ## 生产构建
 

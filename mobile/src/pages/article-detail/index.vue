@@ -7,7 +7,10 @@ const article = ref<any>(null)
 
 onLoad(async (query) => {
   const id = Number(query?.id)
-  if (!id) return
+  if (!Number.isInteger(id) || id <= 0) {
+    uni.showToast({ title: '资讯不存在', icon: 'none' })
+    return
+  }
   try {
     article.value = await fetchArticle(id)
     uni.setNavigationBarTitle({ title: article.value.title || '资讯详情' })

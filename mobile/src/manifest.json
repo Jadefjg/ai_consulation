@@ -48,9 +48,9 @@
     },
     /* 快应用特有相关 */
     "quickapp" : {},
-    /* 小程序特有相关 */
+    /* 小程序特有相关。AppID 改这里；根目录 manifest.json 必须同步，不要只改开发者工具详情页。 */
     "mp-weixin" : {
-        "appid" : "wx312528eab8f11a72",
+        "appid" : "wx9d427f2699c9b2d0",
         "setting" : {
             "urlCheck" : false,
             "es6" : true,

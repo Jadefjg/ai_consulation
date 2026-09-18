@@ -32,6 +32,7 @@ function onDoctorChange(event: any) {
 function openDetail(id: number) { uni.navigateTo({ url: `/pages/consult-detail/index?id=${id}` }) }
 
 async function submit() {
+  if (creating.value) return
   if (!form.content.trim()) {
     uni.showToast({ title: '请填写咨询内容', icon: 'none' })
     return

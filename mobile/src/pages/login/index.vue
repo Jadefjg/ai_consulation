@@ -18,6 +18,18 @@ function goHome() {
   uni.switchTab({ url: '/pages/index/index' })
 }
 
+function showLoginError(error: unknown, fallback: string) {
+  const message = String((error as { message?: string })?.message || fallback)
+  if (/合法域名|未授权|url not in domain|本机地址/i.test(message)) {
+    uni.showModal({ title: '无法连接服务器', content: message, showCancel: false })
+    return
+  }
+  uni.showToast({
+    title: /AppID|Secret|未配置/.test(message) ? '微信登录未就绪，请先用账号密码' : message,
+    icon: 'none',
+  })
+}
+
 async function handlePasswordLogin() {
   if (!form.username || !form.password) {
     uni.showToast({ title: '请输入账号和密码', icon: 'none' })
@@ -28,7 +40,7 @@ async function handlePasswordLogin() {
     await userStore.login(form.username, form.password)
     goHome()
   } catch (error: any) {
-    uni.showToast({ title: error.message || '登录失败', icon: 'none' })
+    showLoginError(error, '登录失败')
   } finally {
     loading.value = false
   }
@@ -48,11 +60,7 @@ async function handleWechatLogin() {
     await userStore.loginWechat(loginRes.code)
     goHome()
   } catch (error: any) {
-    const message = String(error.message || '微信登录失败')
-    uni.showToast({
-      title: /AppID|Secret|未配置/.test(message) ? '微信登录未就绪，请先用账号密码' : message,
-      icon: 'none',
-    })
+    showLoginError(error, '微信登录失败')
   } finally {
     loading.value = false
   }

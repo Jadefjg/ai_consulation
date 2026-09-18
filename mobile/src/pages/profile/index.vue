@@ -3,6 +3,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { reactive, ref } from 'vue'
 import { updateProfile } from '@/api/patient'
 import { useUserStore } from '@/stores/user'
+import { validateAge, validatePhone } from '@/utils/validation'
 
 const userStore = useUserStore()
 const saving = ref(false)
@@ -32,12 +33,23 @@ function open(url: string) {
 }
 
 async function save() {
+  const age = form.age ? Number(form.age) : undefined
+  const ageError = validateAge(form.age)
+  if (ageError) {
+    uni.showToast({ title: ageError, icon: 'none' })
+    return
+  }
+  const phoneError = validatePhone(form.phone)
+  if (phoneError) {
+    uni.showToast({ title: phoneError, icon: 'none' })
+    return
+  }
   saving.value = true
   try {
     await updateProfile({
       real_name: form.real_name,
       phone: form.phone,
-      age: form.age ? Number(form.age) : undefined,
+      age,
       allergy_history: form.allergy_history,
     })
     await userStore.loadProfile()

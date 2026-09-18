@@ -115,6 +115,8 @@ async function handleAddMetric() {
 }
 
 async function handleAssess() {
+  if (saving.value) return
+  saving.value = true
   try {
     risk.value = await assessRisk({
       age: Number(riskForm.age) || 0,
@@ -124,6 +126,8 @@ async function handleAssess() {
     })
   } catch (error: any) {
     uni.showToast({ title: error.message || '评估失败', icon: 'none' })
+  } finally {
+    saving.value = false
   }
 }
 </script>

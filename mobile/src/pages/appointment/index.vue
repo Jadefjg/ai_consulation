@@ -42,6 +42,7 @@ async function loadList() {
 }
 
 onShow(async () => {
+  if (!userStore.requireLogin()) return
   await loadList()
   try {
     departments.value = await fetchDepartments()
@@ -85,6 +86,7 @@ function onScheduleChange(event: any) {
 }
 
 async function submit() {
+  if (creating.value) return
   const dept = departments.value[form.departmentIndex]
   const doctor = doctors.value[form.doctorIndex]
   const schedule = schedules.value[form.scheduleIndex]
