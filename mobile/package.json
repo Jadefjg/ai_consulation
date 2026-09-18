@@ -15,6 +15,7 @@
     "dev:mp-toutiao": "uni -p mp-toutiao",
     "dev:mp-harmony": "uni -p mp-harmony",
     "dev:mp-weixin": "uni -p mp-weixin",
+    "open:mp-weixin": "bash scripts/open-weixin-devtools.sh",
     "dev:mp-xhs": "uni -p mp-xhs",
     "dev:quickapp-webview": "uni -p quickapp-webview",
     "dev:quickapp-webview-huawei": "uni -p quickapp-webview-huawei",

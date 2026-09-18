@@ -15,15 +15,18 @@ npm install
 # H5：http://localhost:5174  （代理到后端 /api）
 npm run dev:h5
 
-# 微信小程序：用微信开发者工具导入 **mobile/dist/build/mp-weixin**（或 `npm run dev:mp-weixin` 后的 `mobile/dist/dev/mp-weixin`）
-# 必须在开发者工具右上角扫码登录，并使用与 manifest 中相同的 AppID，否则会一直停在「游客模式」
-# 开发阶段勾选「不校验合法域名」
+# 微信小程序：先编译，再用开发者工具打开产物
+# 开发阶段勾选「不校验合法域名」；须扫码登录，AppID 与 src/manifest.json 一致
 npm run dev:mp-weixin
+npm run open:mp-weixin
+
+# 若 HBuilderX 提示「启动微信开发者工具失败」：
+# 1. 先手动打开微信开发者工具，设置 → 安全设置 → 开启服务端口
+# 2. 再执行 npm run open:mp-weixin
+# 3. 或在开发者工具中导入 mobile/dist/dev/mp-weixin
 ```
 
-H5 用已有患者账号密码登录。小程序走 `wx.login` → `POST /api/v1/auth/wechat`，也可用同一套账号密码。未配置 AppID 时，后端开发环境可用 `dev_<openid>` 模拟登录。
-
-微信开发者工具本地联调可在 `mobile/.env.local` 写入：
+H5 用已有患者账号密码登录。小程序开发时默认请求 `http://127.0.0.1:8000/api/v1`（见 `.env.development`）。发行包才走 `https://www.wfrz.fun`。真机预览请在 `mobile/.env.local` 写成电脑的局域网 IP：
 
 ```
 VITE_API_BASE=http://192.168.x.x:8000/api/v1
